@@ -1,4 +1,5 @@
 import type { ConfigVersion, Order, PriceRow } from "./store";
+import type { StoreHours } from "./shop";
 
 export const SEED_ORDERS: Order[] = [
   {
@@ -76,23 +77,25 @@ export const SEED_ORDERS: Order[] = [
 ];
 
 export const SEED_PRICING: PriceRow[] = [
-  { category: "Shirts", item: "Shirt (casual)", regularPrice: 3.5, expeditedPrice: 5.5, notes: "" },
-  { category: "Shirts", item: "Shirt (dress)", regularPrice: 4.5, expeditedPrice: 7.0, notes: "" },
-  { category: "Pants", item: "Pants (casual)", regularPrice: 9.0, expeditedPrice: 14.0, notes: "" },
-  { category: "Pants", item: "Pants (dress)", regularPrice: 10.5, expeditedPrice: 16.0, notes: "" },
-  { category: "Suits", item: "Suit (2-piece)", regularPrice: 24.0, expeditedPrice: 36.0, notes: "" },
-  { category: "Suits", item: "Suit (3-piece)", regularPrice: 28.0, expeditedPrice: 42.0, notes: "" },
-  { category: "Outerwear", item: "Wool Coat", regularPrice: 32.0, expeditedPrice: 48.0, notes: "" },
-  { category: "Outerwear", item: "Winter Coat (down)", regularPrice: 38.0, expeditedPrice: 55.0, notes: "" },
-  { category: "Dresses", item: "Dress (cocktail)", regularPrice: 18.0, expeditedPrice: 28.0, notes: "" },
+  { category: "Shirts", item: "Shirt (casual)", regularPrice: 3.5, expeditedPrice: 5.5, notes: "", aliases: ["t-shirt", "polo", "casual shirt"], turnaroundDays: { regular: 2, expedited: 1 } },
+  { category: "Shirts", item: "Shirt (dress)", regularPrice: 4.5, expeditedPrice: 7.0, notes: "", aliases: ["dress shirt", "button down", "button-down"], turnaroundDays: { regular: 2, expedited: 1 } },
+  { category: "Pants", item: "Pants (casual)", regularPrice: 9.0, expeditedPrice: 14.0, notes: "", aliases: ["jeans", "chinos", "khakis"], turnaroundDays: { regular: 2, expedited: 1 } },
+  { category: "Pants", item: "Pants (dress)", regularPrice: 10.5, expeditedPrice: 16.0, notes: "", aliases: ["slacks", "trousers", "dress pants"], turnaroundDays: { regular: 2, expedited: 1 } },
+  { category: "Suits", item: "Suit (2-piece)", regularPrice: 24.0, expeditedPrice: 36.0, notes: "", aliases: ["two piece suit", "business suit", "suit"], turnaroundDays: { regular: 3, expedited: 1 } },
+  { category: "Suits", item: "Suit (3-piece)", regularPrice: 28.0, expeditedPrice: 42.0, notes: "", aliases: ["three piece suit"], turnaroundDays: { regular: 3, expedited: 1 } },
+  { category: "Outerwear", item: "Wool Coat", regularPrice: 32.0, expeditedPrice: 48.0, notes: "", aliases: ["overcoat", "topcoat", "peacoat"], turnaroundDays: { regular: 4, expedited: 2 } },
+  { category: "Outerwear", item: "Winter Coat (down)", regularPrice: 38.0, expeditedPrice: 55.0, notes: "", aliases: ["down jacket", "puffer", "parka"], turnaroundDays: { regular: 5, expedited: 2 } },
+  { category: "Dresses", item: "Dress (cocktail)", regularPrice: 18.0, expeditedPrice: 28.0, notes: "", aliases: ["cocktail dress", "dress", "evening dress"], turnaroundDays: { regular: 3, expedited: 1 } },
   {
     category: "Dresses",
     item: "Wedding Dress",
     regularPrice: 95.0,
     expeditedPrice: 140.0,
     notes: "Call for quote if heavily beaded.",
+    aliases: ["bridal gown", "wedding gown"],
+    turnaroundDays: { regular: 7, expedited: 4 },
   },
-  { category: "Household", item: "Comforter (queen)", regularPrice: 30.0, expeditedPrice: 45.0, notes: "" },
+  { category: "Household", item: "Comforter (queen)", regularPrice: 30.0, expeditedPrice: 45.0, notes: "", aliases: ["comforter", "duvet", "blanket"], turnaroundDays: { regular: 5, expedited: 2 } },
 ];
 
 export const SEED_CONFIG: ConfigVersion = {
@@ -114,4 +117,21 @@ export const SEED_CONFIG: ConfigVersion = {
   author: "system",
   note: "Default",
   createdAt: new Date(0).toISOString(),
+};
+
+export const SEED_HOURS: StoreHours = {
+  _id: "main",
+  timezone: "America/Los_Angeles",
+  address: "1200 Market Street, San Francisco",
+  phone: "+14155550100",
+  weekly: [
+    { day: "mon", open: "08:00", close: "18:00" },
+    { day: "tue", open: "08:00", close: "18:00" },
+    { day: "wed", open: "08:00", close: "18:00" },
+    { day: "thu", open: "08:00", close: "18:00" },
+    { day: "fri", open: "08:00", close: "18:00" },
+    { day: "sat", open: "09:00", close: "15:00" },
+    { day: "sun", closed: true },
+  ],
+  exceptions: [{ date: "2026-11-26", closed: true, reason: "Thanksgiving" }, { date: "2026-12-25", closed: true, reason: "Christmas Day" }],
 };

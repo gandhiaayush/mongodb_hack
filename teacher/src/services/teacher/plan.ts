@@ -3,9 +3,10 @@
 
 import { configId } from "../mongo/bridge.js";
 import type {
-  CallDoc, ConfigVersionDoc, GradeDoc, ImprovementDoc, Issue, Rule, Scores,
+  CallDoc, ConfigVersionDoc, GradeDoc, ImprovementDoc, Issue, Rule, Scores, ToolRequestDoc,
 } from "../mongo/types.js";
 import type { JudgeOutput } from "./judge.js";
+import { validateToolSpec } from "./tools.js";
 
 export const LIMITS = { maxPromptChangesPerCall: 3, maxRules: 20, maxRuleLength: 300, rollbackWindow: 2 };
 
@@ -48,6 +49,7 @@ export interface Plan {
   grade: GradeDoc;
   improvements: ImprovementDoc[]; // every proposal, with final status
   nextConfig: ConfigVersionDoc | null; // null when nothing was applied
+  toolRequests: ToolRequestDoc[]; // new asks for tools; always status "requested", merged into the DB by teach()
 }
 
 export function buildPlan(
@@ -72,6 +74,7 @@ export function buildPlan(
   const nextId = configId(nextVersion);
   let rules: Rule[] = cfg.rules.map((r) => ({ ...r }));
   let applied = 0;
+  const toolRequests: ToolRequestDoc[] = [];
 
   const improvements: ImprovementDoc[] = out.improvements.map((p, i) => {
     const doc: ImprovementDoc = {
@@ -87,6 +90,17 @@ export function buildPlan(
 
     // context = a question for the owner; tool/schema = proposal only. Never auto-applied.
     if (p.type === "context") return p.question?.trim() ? doc : reject("context needs a question for the owner");
+    if (p.type === "tool") {
+      // A tool is only ever REQUESTED. The owner decides, and supplies the endpoint that makes it real.
+      const v = validateToolSpec(p.tool);
+      if ("error" in v) return reject(v.error);
+      toolRequests.push({
+        ...v.spec, _id: v.spec.name, status: "requested", reason: p.reason, request_count: 1,
+        source_call_ids: [call._id], created_at: now, updated_at: now,
+      });
+      doc.payload.tool = v.spec;
+      return doc;
+    }
     if (p.type !== "prompt") return p.text?.trim() ? doc : reject("proposal needs a description");
 
     if (applied >= LIMITS.maxPromptChangesPerCall) return reject("per-call change cap reached");
@@ -122,5 +136,5 @@ export function buildPlan(
     created_by: "teacher", source_call_id: call._id, created_at: now,
     note: `Teacher: ${applied} rule change${applied === 1 ? "" : "s"} after call ${call._id}`,
   };
-  return { grade, improvements, nextConfig };
+  return { grade, improvements, nextConfig, toolRequests };
 }

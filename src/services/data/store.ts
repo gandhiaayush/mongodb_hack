@@ -1,5 +1,6 @@
 import { MongoClient, type Collection, type OptionalUnlessRequiredId } from "mongodb";
-import { SEED_CONFIG, SEED_ORDERS, SEED_PRICING } from "./seed";
+import { SEED_CONFIG, SEED_HOURS, SEED_ORDERS, SEED_PRICING } from "./seed";
+import { localToday, type Appointment, type Customer, type OrderItem, type StageEvent, type StoreHours } from "./shop";
 
 export type Speed = "Regular" | "Expedited";
 
@@ -14,6 +15,11 @@ export interface Order {
   payment: string;
   notes: string;
   expectedDate: string;
+  // Added for orders created by the agent. Older orders only have the flat fields above.
+  items?: OrderItem[];
+  stageHistory?: StageEvent[];
+  createdAt?: string;
+  source?: "phone" | "walk_in";
 }
 
 export interface PriceRow {
@@ -22,6 +28,8 @@ export interface PriceRow {
   regularPrice: number;
   expeditedPrice: number;
   notes: string;
+  aliases?: string[]; // what callers actually say: "blazer" finds "Suit jacket"
+  turnaroundDays?: { regular: number; expedited: number }; // open days
 }
 
 export interface PriceLookup {
@@ -83,7 +91,47 @@ export interface ConfigInput {
   note?: string;
 }
 
+/** A tool the teacher requested and an owner built and enabled (collection `tool_requests`). */
+export interface CustomTool {
+  name: string;
+  description: string;
+  parameters: { name: string; type: "string" | "number" | "integer" | "boolean"; description: string; required: boolean }[];
+  side_effect: "read" | "write";
+  endpoint: string;
+}
+
+export interface NewOrder {
+  customerName: string;
+  phone: string;
+  items: OrderItem[];
+  speed: Speed;
+  notes: string;
+  expectedDate: string;
+}
+
+export interface CollectionInfo {
+  name: string;
+  count: number;
+  sample?: unknown;
+}
+
+export interface TeacherDocs {
+  grades: Record<string, unknown>[];
+  improvements: Record<string, unknown>[];
+  toolRequests: Record<string, unknown>[];
+}
+
 export interface DataStore {
+  getHours(): Promise<StoreHours>;
+  getCustomer(phone: string): Promise<Customer | null>;
+  createOrder(input: NewOrder): Promise<Order>;
+  createAppointment(input: Omit<Appointment, "appointmentId" | "status" | "createdAt">): Promise<Appointment>;
+  getAppointments(orderId: string): Promise<Appointment[]>;
+  describeCollections(): Promise<{ mode: "atlas" | "memory"; db: string; collections: CollectionInfo[] }>;
+  getTeacherDocs(): Promise<TeacherDocs>;
+  answerOwnerQuestion(improvementId: string, answer: string): Promise<Record<string, unknown>>;
+  setToolRequestStatus(name: string, action: "approve" | "decline" | "enable" | "disable", endpoint?: string): Promise<Record<string, unknown>>;
+  getEnabledTools(): Promise<CustomTool[]>;
   getActiveConfig(): Promise<ConfigVersion>;
   listConfigVersions(): Promise<ConfigVersion[]>;
   saveConfigVersion(input: ConfigInput): Promise<ConfigVersion>;
@@ -127,6 +175,40 @@ function newVersion(version: number, input: ConfigInput): ConfigVersion {
   };
 }
 
+export function findPriceRow(rows: PriceRow[], item: string): PriceRow | undefined {
+  const q = item.trim().toLowerCase();
+  const names = (r: PriceRow) => [r.item, ...(r.aliases ?? [])].map((n) => n.toLowerCase());
+  return (
+    rows.find((r) => names(r).includes(q)) ??
+    rows.find((r) => names(r).some((n) => n.includes(q) || q.includes(n)))
+  );
+}
+
+export function nextOrderId(existing: string[]): string {
+  const max = existing.reduce((m, id) => Math.max(m, Number(id.replace(/\D/g, "")) || 0), 0);
+  return `ORD-${String(max + 1).padStart(4, "0")}`;
+}
+
+const TOOL_ACTIONS = {
+  approve: { from: ["requested"], to: "approved" },
+  decline: { from: ["requested", "approved"], to: "declined" },
+  enable: { from: ["approved", "disabled"], to: "enabled" },
+  disable: { from: ["enabled"], to: "disabled" },
+} as const;
+
+export function toolTransition(status: string, action: keyof typeof TOOL_ACTIONS, endpoint?: string): { to: string; endpoint?: string } {
+  const t = TOOL_ACTIONS[action];
+  if (!(t.from as readonly string[]).includes(status)) throw new Error(`Tool is ${status}, cannot ${action}`);
+  if (action === "enable") {
+    let u: URL;
+    try { u = new URL(endpoint ?? ""); } catch { throw new Error("Endpoint must be an https URL"); }
+    const local = u.hostname === "localhost" || u.hostname === "127.0.0.1";
+    if ((u.protocol !== "https:" && !(local && u.protocol === "http:")) || u.username || u.password) throw new Error("Endpoint must be an https URL without credentials");
+    return { to: t.to, endpoint: u.toString() };
+  }
+  return { to: t.to };
+}
+
 function toLookup(item: string, speed: Speed, row: PriceRow | undefined): PriceLookup {
   return {
     found: !!row,
@@ -138,11 +220,34 @@ function toLookup(item: string, speed: Speed, row: PriceRow | undefined): PriceL
   };
 }
 
+function buildOrder(orderId: string, input: NewOrder, now: string): Order {
+  const garment = input.items.map((i) => (i.quantity > 1 ? `${i.quantity}x ${i.item}` : i.item)).join(", ");
+  const total = Math.round(input.items.reduce((sum, i) => sum + i.lineTotal, 0) * 100) / 100;
+  return {
+    orderId, customerName: input.customerName, phone: normalizePhone(input.phone), garment, stage: "Received",
+    orderType: input.speed, price: total, payment: "Unpaid", notes: input.notes, expectedDate: input.expectedDate,
+    items: input.items, stageHistory: [{ stage: "Received", at: now }], createdAt: now, source: "phone",
+  };
+}
+
+function customersFromOrders(rows: Order[]): Customer[] {
+  const byPhone = new Map<string, Customer>();
+  for (const o of rows) {
+    const phone = normalizePhone(o.phone);
+    const prev = byPhone.get(phone);
+    byPhone.set(phone, { phone, name: prev?.name ?? o.customerName, preferences: {}, orderCount: (prev?.orderCount ?? 0) + 1, lastOrderId: o.orderId, createdAt: new Date().toISOString() });
+  }
+  return [...byPhone.values()];
+}
+
 export function createMemoryStore(): DataStore {
   const orders: Order[] = structuredClone(SEED_ORDERS);
   const pricing: PriceRow[] = structuredClone(SEED_PRICING);
   const messages: Message[] = [];
   const calls = new Map<string, CallRecord>();
+  const hours: StoreHours = structuredClone(SEED_HOURS);
+  const customers = new Map<string, Customer>(customersFromOrders(SEED_ORDERS).map((c) => [c.phone, c]));
+  const appointments: Appointment[] = [];
   const configs: ConfigVersion[] = [structuredClone(SEED_CONFIG)];
   let activeVersion = SEED_CONFIG.version;
   const findOrder = (orderId: string) => {
@@ -151,6 +256,61 @@ export function createMemoryStore(): DataStore {
   };
 
   return {
+    async getHours() {
+      return structuredClone(hours);
+    },
+    async getCustomer(phone) {
+      const c = customers.get(normalizePhone(phone));
+      return c ? structuredClone(c) : null;
+    },
+    async createOrder(input) {
+      const now = new Date().toISOString();
+      const order: Order = buildOrder(nextOrderId(orders.map((o) => o.orderId)), input, now);
+      orders.push(order);
+      const phone = order.phone;
+      const prev = customers.get(phone);
+      customers.set(phone, {
+        phone, name: prev?.name ?? input.customerName, preferences: prev?.preferences ?? {},
+        orderCount: (prev?.orderCount ?? 0) + 1, lastOrderId: order.orderId, createdAt: prev?.createdAt ?? now,
+      });
+      return structuredClone(order);
+    },
+    async createAppointment(input) {
+      const appt: Appointment = { ...input, appointmentId: `APT-${String(appointments.length + 1).padStart(4, "0")}`, status: "scheduled", createdAt: new Date().toISOString() };
+      appointments.push(appt);
+      return structuredClone(appt);
+    },
+    async getAppointments(orderId) {
+      return structuredClone(appointments.filter((a) => a.orderId === orderId && a.status === "scheduled"));
+    },
+    async describeCollections() {
+      const one = <T,>(a: T[]) => (a.length ? a[0] : undefined);
+      return { mode: "memory" as const, db: "in-memory", collections: [
+        { name: "customers", count: customers.size, sample: one([...customers.values()]) },
+        { name: "orders", count: orders.length, sample: orders.find((o) => o.items) ?? orders[0] },
+        { name: "pricing", count: pricing.length, sample: pricing.find((p) => p.aliases) ?? pricing[0] },
+        { name: "store_hours", count: 1, sample: hours },
+        { name: "appointments", count: appointments.length, sample: one(appointments) },
+        { name: "claims", count: 0 },
+        { name: "messages", count: messages.length, sample: one(messages) },
+        { name: "calls", count: calls.size, sample: one([...calls.values()].map(({ transcript, ...c }) => c)) },
+        { name: "config_versions", count: configs.length, sample: configs[configs.length - 1] },
+        { name: "config_state", count: 1, sample: { _id: "active", version: activeVersion } },
+        { name: "grades", count: 0 }, { name: "improvements", count: 0 }, { name: "tool_requests", count: 0 },
+      ] };
+    },
+    async getTeacherDocs() {
+      return { grades: [], improvements: [], toolRequests: [] };
+    },
+    async answerOwnerQuestion() {
+      throw new Error("The teacher needs MongoDB (set MONGODB_URI)");
+    },
+    async setToolRequestStatus() {
+      throw new Error("Tool requests need MongoDB (set MONGODB_URI)");
+    },
+    async getEnabledTools() {
+      return [];
+    },
     async getActiveConfig() {
       return structuredClone(configs.find((c) => c.version === activeVersion) ?? configs[0]);
     },
@@ -184,11 +344,7 @@ export function createMemoryStore(): DataStore {
       return pricing.map((r) => ({ ...r }));
     },
     async lookupPrice(item, speed) {
-      const q = item.trim().toLowerCase();
-      const row =
-        pricing.find((r) => r.item.toLowerCase() === q) ??
-        pricing.find((r) => r.item.toLowerCase().includes(q) || q.includes(r.item.toLowerCase()));
-      return toLookup(item, speed, row);
+      return toLookup(item, speed, findPriceRow(pricing, item));
     },
     async appendOrderNote(orderId, note) {
       const order = findOrder(orderId);
@@ -238,8 +394,16 @@ export async function createMongoStore(uri: string, dbName: string): Promise<Dat
   const db = client.db(dbName);
   const orders = db.collection<Order>("orders");
   const pricing = db.collection<PriceRow>("pricing");
+  const toolRequests = db.collection<CustomTool & { status: string }>("tool_requests");
   const messages = db.collection<Message>("messages");
   const calls = db.collection<CallRecord>("calls");
+  const customers = db.collection<Customer>("customers");
+  const storeHours = db.collection<StoreHours & { _id: "main" }>("store_hours");
+  const appointments = db.collection<Appointment>("appointments");
+  const claims = db.collection("claims");
+  const grades = db.collection("grades");
+  const improvements = db.collection("improvements");
+  const phoneOf = (o: Order) => normalizePhone(o.phone);
 
   await orders.createIndex({ orderId: 1 }, { unique: true });
   await pricing.createIndex({ item: 1 }, { unique: true });
@@ -251,11 +415,97 @@ export async function createMongoStore(uri: string, dbName: string): Promise<Dat
   await configState.updateOne({ _id: "active" }, { $setOnInsert: { version: SEED_CONFIG.version } }, { upsert: true });
   await seedIfEmpty(orders, SEED_ORDERS);
   await seedIfEmpty(pricing, SEED_PRICING);
+  await customers.createIndex({ phone: 1 }, { unique: true });
+  await orders.createIndex({ phone: 1, createdAt: -1 });
+  await appointments.createIndex({ orderId: 1, status: 1 });
+  await appointments.createIndex({ date: 1, window: 1 });
+  await claims.createIndex({ status: 1, createdAt: -1 });
+  await toolRequests.createIndex({ name: 1 }, { unique: true }).catch(() => undefined);
+  await storeHours.updateOne({ _id: "main" }, { $setOnInsert: SEED_HOURS }, { upsert: true });
+  await seedIfEmpty(customers, customersFromOrders(SEED_ORDERS));
   console.log(`[data] MongoDB connected: db=${dbName}`);
 
   const proj = { projection: { _id: 0 } } as const;
 
-  return {
+  const self: DataStore = {
+    async getHours() {
+      return (await storeHours.findOne({ _id: "main" }, proj)) ?? structuredClone(SEED_HOURS);
+    },
+    async getCustomer(phone) {
+      return customers.findOne({ phone: normalizePhone(phone) }, proj);
+    },
+    async createOrder(input) {
+      const now = new Date().toISOString();
+      for (let attempt = 0; attempt < 5; attempt++) {
+        const last = await orders.find({}, { projection: { orderId: 1 } }).sort({ orderId: -1 }).limit(1).toArray();
+        const order = buildOrder(nextOrderId(last.map((o) => o.orderId)), input, now);
+        try {
+          await orders.insertOne({ ...order });
+        } catch (err) {
+          if ((err as { code?: number }).code === 11000 && attempt < 4) continue; // another call took this number
+          throw err;
+        }
+        await customers.updateOne(
+          { phone: phoneOf(order) },
+          { $setOnInsert: { name: input.customerName, preferences: {}, createdAt: now }, $set: { lastOrderId: order.orderId }, $inc: { orderCount: 1 } },
+          { upsert: true }
+        );
+        return order;
+      }
+      throw new Error("Could not allocate an order number");
+    },
+    async createAppointment(input) {
+      const count = await appointments.countDocuments();
+      const appt: Appointment = { ...input, appointmentId: `APT-${String(count + 1).padStart(4, "0")}`, status: "scheduled", createdAt: new Date().toISOString() };
+      await appointments.insertOne({ ...appt });
+      return appt;
+    },
+    async getAppointments(orderId) {
+      return appointments.find({ orderId, status: "scheduled" }, proj).toArray();
+    },
+    async describeCollections() {
+      const names = ["customers", "orders", "pricing", "store_hours", "appointments", "claims", "messages", "calls", "config_versions", "config_state", "grades", "improvements", "tool_requests"];
+      const collections = await Promise.all(names.map(async (name) => {
+        const col = db.collection(name);
+        const doc = await col.find({}, { projection: name === "calls" ? { _id: 0, transcript: 0 } : { _id: 0 } }).sort({ _id: -1 }).limit(1).next();
+        return { name, count: await col.estimatedDocumentCount(), ...(doc ? { sample: doc } : {}) };
+      }));
+      return { mode: "atlas" as const, db: dbName, collections };
+    },
+    async getTeacherDocs() {
+      const [g, i, t] = await Promise.all([
+        grades.find({}).sort({ created_at: -1 }).limit(200).toArray(),
+        improvements.find({}).sort({ created_at: -1 }).limit(200).toArray(),
+        toolRequests.find({}).sort({ request_count: -1 }).toArray(),
+      ]);
+      return { grades: g, improvements: i, toolRequests: t } as TeacherDocs;
+    },
+    async answerOwnerQuestion(improvementId, answer) {
+      const text = answer.trim();
+      if (!text || text.length > 1000) throw new Error("Answer must be 1-1000 characters");
+      const imp = await improvements.findOne({ _id: improvementId as never });
+      const question = (imp?.payload as { question?: string } | undefined)?.question;
+      if (!imp || imp.type !== "context" || imp.status !== "proposed" || !question) throw new Error("Not an open question");
+      const current = await self.getActiveConfig();
+      const created = await self.saveConfigVersion({
+        companyName: current.companyName, greeting: current.greeting,
+        context: `${current.context}\n${question} ${text}`.trim().slice(0, 8000),
+        author: "manager", note: `Owner answered: ${question}`.slice(0, 200),
+      });
+      await improvements.updateOne({ _id: improvementId as never }, { $set: { status: "applied", "payload.answer": text, applied_in_config_id: `v${created.version}` } });
+      return (await improvements.findOne({ _id: improvementId as never })) as Record<string, unknown>;
+    },
+    async setToolRequestStatus(name, action, endpoint) {
+      const tr = await toolRequests.findOne({ name });
+      if (!tr) throw new Error("Unknown tool request");
+      const t = toolTransition(tr.status, action, endpoint);
+      await toolRequests.updateOne({ name, status: tr.status }, { $set: { status: t.to, updated_at: new Date(), ...(t.endpoint ? { endpoint: t.endpoint, enabled_at: new Date() } : {}) } });
+      return (await toolRequests.findOne({ name })) as Record<string, unknown>;
+    },
+    async getEnabledTools() {
+      const rows = await toolRequests.find({ status: "enabled", endpoint: { $type: "string" } }).toArray();
+      return rows.map(({ name, description, parameters, side_effect, endpoint }) => ({ name, description, parameters, side_effect, endpoint }));
+    },
     async getActiveConfig() {
       const state = await configState.findOne({ _id: "active" });
       const active = state ? await configVersions.findOne({ version: state.version }, proj) : null;
@@ -304,14 +554,8 @@ export async function createMongoStore(uri: string, dbName: string): Promise<Dat
       return pricing.find({}, proj).sort({ category: 1, item: 1 }).toArray();
     },
     async lookupPrice(item, speed) {
-      const row = await pricing.findOne(
-        { item: { $regex: `^${escapeRegex(item.trim())}$`, $options: "i" } },
-        proj
-      ) ?? await pricing.findOne(
-        { item: { $regex: escapeRegex(item.trim()), $options: "i" } },
-        proj
-      );
-      return toLookup(item, speed, row ?? undefined);
+      // The price list is small, so match in code (names and aliases) with the same rules as the in-memory store.
+      return toLookup(item, speed, findPriceRow(await pricing.find({}, proj).toArray(), item));
     },
     async appendOrderNote(orderId, note) {
       const line = `[${today()}] ${note.trim()}`;
@@ -354,6 +598,7 @@ export async function createMongoStore(uri: string, dbName: string): Promise<Dat
       return messages.find({}, proj).sort({ createdAt: -1 }).toArray();
     },
   };
+  return self;
 }
 
 export async function createDataStore(): Promise<DataStore> {

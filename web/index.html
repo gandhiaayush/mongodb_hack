@@ -3,31 +3,32 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Hanger Dashboard</title>
+<title>CJ's Cleaning Dashboard</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 16 16%27%3E%3Crect width=%2716%27 height=%2716%27 fill=%27%230D0D0D%27/%3E%3C/svg%3E" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Source+Code+Pro:wght@400;500&family=Source+Serif+4:opsz,wght@8..60,500;8..60,600;8..60,700&display=swap" rel="stylesheet" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 16 16%27%3E%3Crect width=%2716%27 height=%2716%27 fill=%27%23001E2B%27/%3E%3Cpath d=%27M8 4.5a1.4 1.4 0 1 1 1.4 1.4M8 5.9V7l-5 3.6a.6.6 0 0 0 .3 1.1h9.4a.6.6 0 0 0 .3-1.1L8 7%27 fill=%27none%27 stroke=%27%2300ED64%27 stroke-width=%271.2%27/%3E%3C/svg%3E" />
 <script src="config.js"></script>
 <style>
-/* ─── Tokens ─────────────────────────────────────────────────────────── */
+/* ─── Tokens (MongoDB palette: Forest, Spring Green, Evergreen, Mist) ───── */
 :root{
-  --bg:#F5F4F0;--ink:#0D0D0D;--surface:#FFFFFF;--border:#D8D5CC;--muted:#777;
-  --hover:#F0EFE8;--active-row:#EDECEA;--inv-bg:#0D0D0D;--inv-fg:#FFFFFF;
-  --good:#1f7a4d;--bad:#b3261e;--live:#c0392b;--teacher:#5b3fd1;
-  --bubble-caller:#EDECEA;--bubble-agent:#0D0D0D;--bubble-agent-fg:#FFFFFF;
-  --shadow:0 1px 3px rgba(0,0,0,.07);--shadow-lg:0 4px 16px rgba(0,0,0,.1);
-  --r:2px;
-  --fh:"Times New Roman",Georgia,serif;--fb:"Inter",system-ui,-apple-system,sans-serif;--fm:"JetBrains Mono","Courier New",monospace;
-  --gutter:28px;--tab-h:44px;
+  --forest:#001E2B;--evergreen:#023430;--spring:#00ED64;--mgreen:#00684A;--mist:#E3FCF7;
+  --bg:#F9FBFA;--ink:#001E2B;--surface:#FFFFFF;--border:#DCE4E1;--muted:#5C6C75;
+  --hover:#F1F6F4;--active-row:#E3FCF7;--inv-bg:#00684A;--inv-fg:#FFFFFF;--accent:#00684A;--accent-soft:#E3FCF7;
+  --good:#00684A;--bad:#CF2F28;--warn:#946B00;--live:#DB3030;--teacher:#016BF8;
+  --bubble-caller:#EEF3F1;--bubble-agent:#001E2B;--bubble-agent-fg:#FFFFFF;
+  --shadow:0 1px 2px rgba(0,30,43,.06);--shadow-lg:0 8px 28px rgba(0,30,43,.16);
+  --r:6px;--rc:10px;
+  --fh:"Source Serif 4",Georgia,serif;--fb:"Inter",system-ui,-apple-system,sans-serif;--fm:"Source Code Pro","JetBrains Mono",ui-monospace,monospace;
+  --gutter:28px;--tab-h:46px;
 }
 @media (prefers-color-scheme: dark){
   :root{
-    --bg:#111110;--ink:#EDEBE4;--surface:#1A1A18;--border:#34332F;--muted:#9A978E;
-    --hover:#242421;--active-row:#2C2B27;--inv-bg:#EDEBE4;--inv-fg:#111110;
-    --good:#4cc38a;--bad:#ff7a70;--live:#ff6b5e;--teacher:#a995ff;
-    --bubble-caller:#2C2B27;--bubble-agent:#EDEBE4;--bubble-agent-fg:#111110;
-    --shadow:0 1px 3px rgba(0,0,0,.4);--shadow-lg:0 4px 16px rgba(0,0,0,.5);
+    --bg:#00141D;--ink:#E8EDEB;--surface:#0A2330;--border:#1C3A49;--muted:#93A4AB;
+    --hover:#0F2D3B;--active-row:#0D3B3A;--inv-bg:#00ED64;--inv-fg:#001E2B;--accent:#00ED64;--accent-soft:#073B35;
+    --good:#00ED64;--bad:#FF7A70;--warn:#FFC010;--live:#FF6B5E;--teacher:#5CA8FF;
+    --bubble-caller:#12303E;--bubble-agent:#00ED64;--bubble-agent-fg:#001E2B;
+    --shadow:0 1px 2px rgba(0,0,0,.4);--shadow-lg:0 8px 28px rgba(0,0,0,.55);
   }
 }
 *{box-sizing:border-box;margin:0;padding:0}
@@ -37,28 +38,34 @@ button,input,textarea{font:inherit;color:inherit}
 .hidden{display:none!important}
 
 /* ─── Header ─────────────────────────────────────────────────────────── */
-.hdr{background:var(--surface);border-bottom:2px solid var(--ink);padding:0 var(--gutter);min-height:54px;
+.hdr{background:var(--forest);color:#fff;border-bottom:1px solid #0b3a4a;padding:0 var(--gutter);min-height:60px;
   display:flex;align-items:center;justify-content:space-between;gap:10px;position:sticky;top:0;z-index:50}
-.hdr-brand{font-family:var(--fh);font-weight:700;font-size:1.25rem;letter-spacing:-.5px;white-space:nowrap}
-.hdr-brand small{font-family:var(--fb);font-weight:400;font-size:.72rem;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-left:8px}
+.hdr-brand{display:flex;align-items:center;gap:11px;font-family:var(--fh);font-weight:700;font-size:1.3rem;letter-spacing:-.2px;white-space:nowrap}
+.logo{width:34px;height:34px;border-radius:9px;background:var(--spring);display:grid;place-items:center;flex:none}
+.logo svg{width:20px;height:20px;stroke:var(--forest);fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.hdr-brand small{font-family:var(--fb);font-weight:500;font-size:.68rem;color:#9fb4bb;letter-spacing:.1em;text-transform:uppercase;margin-left:2px;padding-left:12px;border-left:1px solid #1f4656}
+.atlas-chip{display:inline-flex;align-items:center;gap:7px;border:1px solid #1f4656;border-radius:999px;padding:4px 11px 4px 8px;font-size:.72rem;color:#cfe0e4;font-family:var(--fm);white-space:nowrap}
+.atlas-chip i{width:8px;height:8px;border-radius:50%;background:var(--spring);box-shadow:0 0 0 3px rgba(0,237,100,.18)}
+.atlas-chip.off i{background:#7b8d94;box-shadow:none}
 .hdr-right{display:flex;align-items:center;gap:10px;min-width:0}
-.status{display:flex;align-items:center;gap:6px;font-size:.72rem;color:var(--muted);font-family:var(--fm);white-space:nowrap}
+.status{display:flex;align-items:center;gap:6px;font-size:.72rem;color:#9fb4bb;font-family:var(--fm);white-space:nowrap}
 .dot{width:8px;height:8px;border-radius:50%;background:var(--muted);flex-shrink:0}
-.dot.ok{background:var(--good);box-shadow:0 0 0 3px rgba(31,122,77,.2)}
+.dot.ok{background:var(--spring);box-shadow:0 0 0 3px rgba(0,237,100,.2)}
 .dot.bad{background:var(--bad)}
-.dot.demo{background:var(--ink)}
+.dot.demo{background:var(--spring)}
 .icon-btn{background:transparent;border:1px solid var(--border);color:var(--muted);padding:5px 12px;border-radius:var(--r);
   font-size:.78rem;cursor:pointer;transition:border-color .15s,color .15s}
 .icon-btn:hover{border-color:var(--ink);color:var(--ink)}
+.hdr .icon-btn{border-color:#1f4656;color:#cfe0e4}.hdr .icon-btn:hover{border-color:var(--spring);color:var(--spring)}
 
 /* ─── Tabs ───────────────────────────────────────────────────────────── */
-.tab-bar{background:var(--surface);border-bottom:1.5px solid var(--border);padding:0 var(--gutter);display:flex;
+.tab-bar{background:var(--surface);border-bottom:1px solid var(--border);padding:0 var(--gutter);display:flex;
   height:var(--tab-h);overflow-x:auto;scrollbar-width:none}
 .tab-bar::-webkit-scrollbar{display:none}
-.tab{padding:0 20px;height:var(--tab-h);display:flex;align-items:center;gap:7px;font-family:var(--fh);font-size:.95rem;
+.tab{padding:0 18px;height:var(--tab-h);display:flex;align-items:center;gap:7px;font-family:var(--fb);font-weight:500;font-size:.88rem;
   cursor:pointer;border:0;border-bottom:2px solid transparent;background:none;color:var(--muted);white-space:nowrap;letter-spacing:.01em}
 .tab:hover{color:var(--ink)}
-.tab.active{color:var(--ink);border-bottom-color:var(--ink)}
+.tab.active{color:var(--ink);border-bottom-color:var(--spring);box-shadow:inset 0 -1px 0 var(--accent)}
 .tab-badge{background:var(--live);color:#fff;font-size:.65rem;font-weight:700;padding:2px 6px;border-radius:var(--r);font-family:var(--fb);min-width:18px;text-align:center}
 
 /* ─── Content ────────────────────────────────────────────────────────── */
@@ -66,8 +73,8 @@ main{padding:24px var(--gutter) 48px;max-width:1400px;margin:0 auto}
 .panel{display:none}.panel.active{display:block}
 
 .stats-bar{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:22px}
-.sc{background:var(--surface);padding:16px 20px;border:1px solid var(--border);box-shadow:var(--shadow);min-width:0}
-.sc-val{font-family:var(--fh);font-size:2rem;font-weight:700;line-height:1}
+.sc{background:var(--surface);padding:16px 20px;border:1px solid var(--border);border-radius:var(--rc);box-shadow:var(--shadow);min-width:0}
+.sc-val{font-family:var(--fh);font-size:2.1rem;font-weight:600;line-height:1}
 .sc-lbl{font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-top:6px}
 .sc.live .sc-val{color:var(--live)}
 
@@ -78,22 +85,22 @@ main{padding:24px var(--gutter) 48px;max-width:1400px;margin:0 auto}
 code,.mono{font-family:var(--fm);font-size:.8em}
 
 /* buttons / inputs */
-.btn{padding:7px 16px;border-radius:var(--r);font-size:.85rem;font-weight:500;cursor:pointer;border:1px solid var(--ink);background:var(--inv-bg);color:var(--inv-fg)}
+.btn{padding:7px 16px;border-radius:var(--r);font-size:.85rem;font-weight:600;cursor:pointer;border:1px solid var(--inv-bg);background:var(--inv-bg);color:var(--inv-fg)}
 .btn:hover{opacity:.85}
-.btn.ghost{background:transparent;color:var(--ink)}
-.btn.ghost:hover{background:var(--ink);color:var(--inv-fg);opacity:1}
+.btn.ghost{background:transparent;color:var(--ink);border-color:var(--border)}
+.btn.ghost:hover{border-color:var(--ink);opacity:1}
 .fi{padding:8px 11px;border:1.5px solid var(--border);border-radius:var(--r);font-size:.85rem;background:var(--bg);outline:none;width:100%;font-family:var(--fm)}
-.fi:focus{border-color:var(--ink)}
+.fi:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
 .fl{font-size:.7rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:5px}
 
 /* ─── Tables ─────────────────────────────────────────────────────────── */
-.table-wrap{background:var(--surface);border:1px solid var(--border);box-shadow:var(--shadow);overflow:hidden}
+.table-wrap{background:var(--surface);border:1px solid var(--border);border-radius:var(--rc);box-shadow:var(--shadow);overflow:hidden}
 .tw-hdr{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:13px 18px;border-bottom:1.5px solid var(--border)}
-.tw-title{font-family:var(--fh);font-weight:700;font-size:1rem}
+.tw-title{font-family:var(--fh);font-weight:600;font-size:1.05rem}
 .tw-meta{font-size:.78rem;color:var(--muted)}
 .tscroll{overflow-x:auto}
 table{width:100%;border-collapse:collapse}
-thead th{text-align:left;padding:9px 13px;font-size:.68rem;font-weight:400;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);border-bottom:2px solid var(--ink);white-space:nowrap}
+thead th{text-align:left;padding:9px 13px;font-size:.68rem;font-weight:400;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border);white-space:nowrap}
 tbody tr{border-bottom:1px solid var(--border)}
 tbody tr:last-child{border-bottom:none}
 tbody tr:hover{background:var(--hover)}
@@ -103,9 +110,9 @@ td.wrapcell{min-width:200px;max-width:420px}
 .td-mono{font-family:var(--fm);font-size:.78rem;color:var(--muted)}
 .td-name{font-weight:600}.td-name .td-mono{font-weight:400}
 
-.badge{display:inline-flex;align-items:center;padding:3px 9px;border-radius:var(--r);font-size:.7rem;font-weight:700;letter-spacing:.04em;white-space:nowrap;border:1px solid var(--ink)}
-.b-solid{background:var(--ink);color:var(--inv-bg)}
-.b-line{background:transparent;color:var(--ink)}
+.badge{display:inline-flex;align-items:center;padding:2px 9px;border-radius:999px;font-size:.7rem;font-weight:600;letter-spacing:.02em;white-space:nowrap;border:1px solid var(--accent)}
+.b-solid{background:var(--accent);border-color:var(--accent);color:var(--inv-fg)}
+.b-line{background:transparent;color:var(--accent)}
 .b-mute{background:transparent;color:var(--muted);border-color:var(--border)}
 .b-live{background:var(--live);border-color:var(--live);color:#fff}
 .b-live::before{content:"";width:6px;height:6px;border-radius:50%;background:#fff;margin-right:6px;animation:pulse 1.4s infinite}
@@ -113,16 +120,16 @@ td.wrapcell{min-width:200px;max-width:420px}
 
 /* ─── Calls split view ───────────────────────────────────────────────── */
 .split{display:grid;grid-template-columns:minmax(300px,380px) 1fr;gap:18px;align-items:start}
-.call-list{background:var(--surface);border:1px solid var(--border);box-shadow:var(--shadow);max-height:calc(100vh - 230px);overflow-y:auto}
+.call-list{background:var(--surface);border:1px solid var(--border);border-radius:var(--rc);overflow:hidden;box-shadow:var(--shadow);max-height:calc(100vh - 230px);overflow-y:auto}
 .call-item{display:block;width:100%;text-align:left;background:none;border:0;border-bottom:1px solid var(--border);padding:12px 16px;cursor:pointer}
 .call-item:hover{background:var(--hover)}
-.call-item.sel{background:var(--active-row);box-shadow:inset 3px 0 0 var(--ink)}
+.call-item.sel{background:var(--active-row);box-shadow:inset 3px 0 0 var(--accent)}
 .ci-top{display:flex;justify-content:space-between;align-items:center;gap:8px}
 .ci-from{font-weight:600;font-size:.9rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ci-meta{font-size:.74rem;color:var(--muted);margin-top:4px;display:flex;gap:10px;flex-wrap:wrap}
 .ci-snip{font-size:.8rem;color:var(--muted);margin-top:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-style:italic}
 
-.detail{background:var(--surface);border:1px solid var(--border);box-shadow:var(--shadow);display:flex;flex-direction:column;max-height:calc(100vh - 230px);min-height:320px}
+.detail{background:var(--surface);border:1px solid var(--border);border-radius:var(--rc);overflow:hidden;box-shadow:var(--shadow);display:flex;flex-direction:column;max-height:calc(100vh - 230px);min-height:320px}
 .dt-hdr{padding:14px 18px;border-bottom:1.5px solid var(--border);display:flex;align-items:center;gap:12px;flex-wrap:wrap}
 .dt-hdr .back{display:none}
 .dt-title{font-family:var(--fh);font-weight:700;font-size:1.15rem}
@@ -149,13 +156,13 @@ td.wrapcell{min-width:200px;max-width:420px}
 
 /* settings */
 .ov{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:200;display:flex;align-items:flex-start;justify-content:center;padding:70px 16px 16px;overflow-y:auto}
-.modal{background:var(--surface);border:2px solid var(--ink);box-shadow:var(--shadow-lg);width:520px;max-width:100%}
-.modal-hdr{background:var(--inv-bg);color:var(--inv-fg);padding:14px 20px;display:flex;justify-content:space-between;align-items:center}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;box-shadow:var(--shadow-lg);width:520px;max-width:100%}
+.modal-hdr{background:var(--forest);color:#fff;padding:14px 20px;display:flex;justify-content:space-between;align-items:center}
 .modal-title{font-family:var(--fh);font-weight:700;font-size:1.05rem}
 .modal-x{background:none;border:1.5px solid currentColor;color:inherit;width:26px;height:26px;border-radius:50%;cursor:pointer;opacity:.7}
 .modal-body{padding:20px;display:flex;flex-direction:column;gap:16px}
 .check{display:flex;gap:10px;align-items:flex-start;font-size:.85rem;cursor:pointer}
-.check input{margin-top:3px;accent-color:var(--ink)}
+.check input{margin-top:3px;accent-color:var(--accent)}
 .hint{font-size:.76rem;color:var(--muted);line-height:1.5;margin-top:5px}
 .row{display:flex;gap:10px;flex-wrap:wrap}
 .test-res{font-size:.8rem;font-family:var(--fm)}
@@ -166,11 +173,12 @@ td.wrapcell{min-width:200px;max-width:420px}
 
 
 /* ─── Company context ────────────────────────────────────────────────── */
+.btn{white-space:nowrap}
 .btn:disabled{opacity:.4;cursor:not-allowed}
 .btn.sm{padding:4px 10px;font-size:.78rem}
 .b-good{background:transparent;color:var(--good);border-color:var(--good)}
 .b-teacher{background:transparent;color:var(--teacher);border-color:var(--teacher)}
-.card{background:var(--surface);border:1px solid var(--border);box-shadow:var(--shadow);margin-bottom:18px;min-width:0}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--rc);box-shadow:var(--shadow);margin-bottom:18px;min-width:0;overflow:hidden}
 .card-body{padding:18px;display:flex;flex-direction:column;gap:16px}
 .co-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
 .co-grid>div{min-width:0}
@@ -190,7 +198,7 @@ textarea.fi{min-height:260px;resize:vertical;line-height:1.55}
 .ver-list{max-height:620px;overflow-y:auto}
 .ver{padding:12px 16px;border-bottom:1px solid var(--border)}
 .ver:last-child{border-bottom:none}
-.ver.sel{background:var(--active-row);box-shadow:inset 3px 0 0 var(--ink)}
+.ver.sel{background:var(--active-row);box-shadow:inset 3px 0 0 var(--accent)}
 .ver-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .ver-n{font-family:var(--fh);font-weight:700;font-size:1.05rem}
 .ver-time{margin-left:auto;font-size:.74rem;color:var(--muted);white-space:nowrap}
@@ -236,13 +244,108 @@ textarea.fi{min-height:260px;resize:vertical;line-height:1.55}
   .sc{padding:12px 14px}
   .sc:last-child{grid-column:span 2}
 }
+/* ─── Improvements / Tools / Data ────────────────────────────────────── */
+.sec-h{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin:26px 0 12px;flex-wrap:wrap}
+.sec-h:first-child{margin-top:0}
+.sec-h h2{font-family:var(--fh);font-weight:600;font-size:1.3rem;letter-spacing:-.2px}
+.sec-h p{color:var(--muted);font-size:.85rem;max-width:640px}
+.kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:18px}
+.kpi{background:var(--surface);border:1px solid var(--border);border-radius:var(--rc);padding:16px 18px;box-shadow:var(--shadow);min-width:0}
+.kpi .v{font-family:var(--fh);font-size:2.1rem;font-weight:600;line-height:1;display:flex;align-items:baseline;gap:8px}
+.kpi .v small{font-family:var(--fb);font-size:.78rem;font-weight:600}
+.kpi .l{font-size:.66rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-top:7px}
+.kpi.attn{background:var(--forest);border-color:var(--forest);color:#fff}
+.kpi.attn .l{color:#9fb4bb}.kpi.attn .v{color:var(--spring)}
+.up{color:var(--good)}.down{color:var(--bad)}
+.chart-card{padding:16px 18px 10px}
+.chart-top{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:6px}
+.legend{display:flex;gap:16px;font-size:.78rem;color:var(--muted);flex-wrap:wrap}
+.legend i{display:inline-block;width:18px;height:0;border-top:3px solid var(--accent);vertical-align:middle;margin-right:6px;border-radius:2px}
+.legend i.f{border-top:3px dashed var(--warn)}
+.chart-scroll{overflow-x:auto}
+svg.chart{width:100%;min-width:620px;height:auto;display:block;overflow:visible}
+.chart text{font-family:var(--fb);font-size:11px;fill:var(--muted)}
+.chart .grid{stroke:var(--border);stroke-width:1}
+.chart .ver-line{stroke:var(--teacher);stroke-width:1.2;stroke-dasharray:3 4}
+.chart .ver-lbl{fill:var(--teacher);font-weight:600}
+.chart .l-o{fill:none;stroke:var(--accent);stroke-width:2.6;stroke-linejoin:round;stroke-linecap:round}
+.chart .l-f{fill:none;stroke:var(--warn);stroke-width:2;stroke-dasharray:5 4;stroke-linecap:round}
+.chart .p-o{fill:var(--surface);stroke:var(--accent);stroke-width:2.2}
+.chart .p-f{fill:var(--warn)}
+.chart .end-o{fill:var(--accent);font-weight:700}.chart .end-f{fill:var(--warn);font-weight:700}
+.two{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,6fr);gap:18px;align-items:start}
+.two>*{min-width:0}
+.attn-item{padding:14px 18px;border-bottom:1px solid var(--border)}
+.attn-item:last-child{border-bottom:none}
+.attn-q{font-weight:600;font-size:.92rem;line-height:1.4}
+.attn-why{font-size:.78rem;color:var(--muted);margin-top:4px}
+.ans{display:flex;gap:8px;margin-top:10px}
+.ans .fi{font-family:var(--fb)}
+.chip{display:inline-flex;align-items:center;padding:1px 8px;border-radius:999px;font-size:.68rem;font-weight:600;background:var(--hover);color:var(--muted);border:1px solid var(--border);white-space:nowrap}
+.chip.g{background:var(--accent-soft);color:var(--accent);border-color:transparent}
+.chip.b{background:rgba(1,107,248,.1);color:var(--teacher);border-color:transparent}
+.chip.w{background:rgba(255,192,16,.18);color:var(--warn);border-color:transparent}
+.chip.r{background:rgba(219,48,48,.1);color:var(--bad);border-color:transparent}
+.feed-item{padding:14px 18px;border-bottom:1px solid var(--border);display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:start}
+.feed-item:last-child{border-bottom:none}
+.ico{width:30px;height:30px;border-radius:8px;display:grid;place-items:center;font-size:.9rem;background:var(--accent-soft);color:var(--accent);flex:none}
+.ico.b{background:rgba(1,107,248,.1);color:var(--teacher)}.ico.w{background:rgba(255,192,16,.2);color:var(--warn)}.ico.r{background:rgba(219,48,48,.1);color:var(--bad)}
+.feed-t{font-size:.9rem;font-weight:600;line-height:1.35}
+.feed-d{font-size:.82rem;color:var(--muted);margin-top:3px;line-height:1.5;overflow-wrap:anywhere}
+.feed-m{display:flex;gap:6px;flex-wrap:wrap;margin-top:7px;align-items:center}
+.feed-r{display:flex;flex-direction:column;align-items:flex-end;gap:6px}
+.sbar{display:inline-block;width:46px;height:6px;border-radius:3px;background:var(--border);overflow:hidden;vertical-align:middle}
+.sbar b{display:block;height:100%;background:var(--accent)}
+.sbar.lo b{background:var(--bad)}.sbar.mid b{background:var(--warn)}
+.score{font-family:var(--fh);font-weight:700;font-size:1.05rem}
+tr.gr{cursor:pointer}
+tr.gr-d td{background:var(--bg);padding:14px 18px}
+.iss{font-size:.82rem;margin:6px 0;line-height:1.5}
+.iss q{font-style:italic;color:var(--ink)}
+.pipe{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;align-items:start}
+.lane{background:var(--hover);border:1px solid var(--border);border-radius:var(--rc);padding:10px;min-height:120px}
+.lane-h{display:flex;justify-content:space-between;align-items:center;padding:4px 6px 10px;font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.lane-h b{background:var(--surface);border:1px solid var(--border);border-radius:999px;padding:0 8px;color:var(--ink)}
+.tcard{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:10px;box-shadow:var(--shadow)}
+.tcard.live{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.t-name{font-family:var(--fm);font-weight:500;font-size:.88rem;word-break:break-all}
+.t-desc{font-size:.8rem;color:var(--muted);margin:5px 0 8px;line-height:1.45}
+.params{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px}
+.params span{font-family:var(--fm);font-size:.68rem;background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:1px 6px}
+.t-ask{font-size:.76rem;color:var(--muted);margin-bottom:8px}
+.t-ask b{color:var(--ink)}
+.t-act{display:flex;gap:6px;flex-wrap:wrap}
+.t-ep{display:flex;gap:6px;margin-top:8px}
+.t-ep .fi{font-size:.72rem;padding:5px 8px}
+.t-note{font-size:.74rem;color:var(--muted);font-style:italic;margin-top:6px}
+.builtin{display:flex;flex-wrap:wrap;gap:8px}
+.builtin span{font-family:var(--fm);font-size:.76rem;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:4px 9px}
+.builtin span em{font-style:normal;color:var(--muted);font-family:var(--fb);font-size:.68rem;margin-left:6px}
+.flow{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:.8rem;color:var(--muted);background:var(--surface);border:1px solid var(--border);border-radius:var(--rc);padding:12px 16px;margin-bottom:16px}
+.flow b{color:var(--ink)}.flow .arr{color:var(--accent)}
+.colgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(310px,1fr));gap:14px}
+.col{background:var(--surface);border:1px solid var(--border);border-radius:var(--rc);box-shadow:var(--shadow);padding:14px 16px;min-width:0}
+.col-h{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.col-n{font-family:var(--fm);font-weight:500;font-size:.95rem}
+.col-c{font-family:var(--fh);font-weight:600;font-size:1.3rem}
+.col-p{font-size:.8rem;color:var(--muted);margin:6px 0 9px;line-height:1.45}
+.col-i{font-family:var(--fm);font-size:.68rem;color:var(--muted);margin-top:8px;line-height:1.6}
+.col details summary{cursor:pointer;font-size:.74rem;color:var(--accent);font-weight:600;list-style:none;margin-top:8px}
+.col details summary::-webkit-details-marker{display:none}
+.col pre{font-family:var(--fm);font-size:.68rem;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:9px;max-height:230px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;margin-top:6px}
+.own{font-size:.64rem;text-transform:uppercase;letter-spacing:.08em}
+.qual{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+@media (max-width:1000px){.kpis{grid-template-columns:repeat(3,1fr)}.two{grid-template-columns:1fr}.pipe{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:620px){.kpis{grid-template-columns:repeat(2,1fr);gap:10px}.pipe{grid-template-columns:1fr}.feed-item{grid-template-columns:auto 1fr}.feed-r{grid-column:2;align-items:flex-start;flex-direction:row;flex-wrap:wrap}.atlas-chip{display:none}}
+
 </style>
 </head>
 <body>
 
 <header class="hdr">
-  <div class="hdr-brand"><span class="brand-name">Hanger</span><small>Owner dashboard</small></div>
+  <div class="hdr-brand"><span class="logo" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 8a2.4 2.4 0 1 0-2.4-2.4"/><path d="M12 8v2L3.6 16.3a1.1 1.1 0 0 0 .7 2h15.4a1.1 1.1 0 0 0 .7-2L12 10"/></svg></span><span class="brand-name">CJ's Cleaning</span><small>Owner dashboard</small></div>
   <div class="hdr-right">
+    <span class="atlas-chip off" id="atlas-chip" title="Data store"><i></i><span id="atlas-text">Data store</span></span>
     <div class="status" id="status"><span class="dot" id="status-dot"></span><span id="status-text">Not connected</span></div>
     <button class="icon-btn" id="btn-settings" type="button">Settings</button>
   </div>
@@ -255,6 +358,8 @@ textarea.fi{min-height:260px;resize:vertical;line-height:1.55}
   <button class="tab" role="tab" data-tab="messages" type="button">Messages</button>
   <button class="tab" role="tab" data-tab="company" type="button">Company Context</button>
   <button class="tab" role="tab" data-tab="improvements" type="button">Improvements</button>
+  <button class="tab" role="tab" data-tab="tools" type="button">Tools</button>
+  <button class="tab" role="tab" data-tab="data" type="button">Data</button>
 </nav>
 
 <main>
@@ -263,6 +368,7 @@ textarea.fi{min-height:260px;resize:vertical;line-height:1.55}
   <section class="panel active" id="panel-overview">
     <div class="stats-bar" id="stats"></div>
     <div id="overview-empty"></div>
+    <div id="overview-quality"></div>
     <div class="table-wrap" id="overview-recent"></div>
   </section>
 
@@ -293,11 +399,11 @@ textarea.fi{min-height:260px;resize:vertical;line-height:1.55}
           <div class="co-grid">
             <div>
               <div class="fl-row"><label class="fl" for="co-name">Company name</label><span class="counter" id="co-name-n"></span></div>
-              <input class="fi" id="co-name" type="text" autocomplete="off" placeholder="Bright Press Cleaners" />
+              <input class="fi" id="co-name" type="text" autocomplete="off" placeholder="CJ's Cleaning" />
             </div>
             <div>
               <div class="fl-row"><label class="fl" for="co-greet">Greeting</label><span class="counter" id="co-greet-n"></span></div>
-              <input class="fi" id="co-greet" type="text" autocomplete="off" placeholder="Thanks for calling Bright Press Cleaners, how can I help?" />
+              <input class="fi" id="co-greet" type="text" autocomplete="off" placeholder="Thanks for calling CJ's Cleaning, how can I help?" />
               <div class="hint">What the agent says when it answers the phone.</div>
             </div>
           </div>
@@ -337,12 +443,9 @@ textarea.fi{min-height:260px;resize:vertical;line-height:1.55}
     </div>
   </section>
 
-  <section class="panel" id="panel-improvements">
-    <div class="coming">
-      <h3>Improvements</h3>
-      <p>Coming soon: the teaching agent's grades and changes will appear here.</p>
-    </div>
-  </section>
+  <section class="panel" id="panel-improvements"><div id="imp-root"></div></section>
+  <section class="panel" id="panel-tools"><div id="tools-root"></div></section>
+  <section class="panel" id="panel-data"><div id="data-root"></div></section>
 </main>
 
 <div class="ov hidden" id="settings-ov">
@@ -440,11 +543,11 @@ var Demo = (function(){
   var calls = [
     { callSid:"CA9f3c1d0a77b2e4", from:"+14155550142", startedAt:ts(2), status:"active",
       transcript:[
-        {role:"agent",text:"Thanks for calling Bright Press Cleaners, this is the virtual receptionist. How can I help?",ts:ts(2,0)},
+        {role:"agent",text:"Thanks for calling CJ's Cleaning, this is the virtual receptionist. How can I help?",ts:ts(2,0)},
         {role:"caller",text:"Hi, I'd like to check on my order. The name is Maria Lopez.",ts:ts(2,9)},
         {role:"agent",text:"Sure, one moment while I look that up.",ts:ts(2,13)}
       ],
-      toolCalls:[{name:"lookup_order",args:{customerName:"Maria Lopez"},result:{orderId:"ORD-1042",stage:"Ready",garment:"Wool coat"},ts:ts(2,15)}] },
+      toolCalls:[{name:"get_order",args:{customerName:"Maria Lopez"},result:{orderId:"ORD-1042",stage:"Ready",garment:"Wool coat"},ts:ts(2,15)}] },
     { callSid:"CA41be90c2d813aa", from:"+14155550199", startedAt:ts(26), endedAt:ts(23), durationSec:174, status:"completed",
       transcript:[
         {role:"agent",text:"Thanks for calling, how can I help?",ts:ts(26,0)},
@@ -456,7 +559,7 @@ var Demo = (function(){
         {role:"agent",text:"Done. I created an order for Priya Shah, a drop-off tomorrow at 10am.",ts:ts(25,50)}
       ],
       toolCalls:[
-        {name:"get_prices",args:{item:"wedding dress"},result:{price:145,turnaroundDays:"5-7"},ts:ts(26,24)},
+        {name:"lookup_price",args:{item:"wedding dress"},result:{price:145,turnaroundDays:"5-7"},ts:ts(26,24)},
         {name:"create_order",args:{customerName:"Priya Shah",phone:"+14155550199",garment:"Wedding dress",orderType:"regular"},result:{orderId:"ORD-1043",ok:true},ts:ts(25,48)}
       ] },
     { callSid:"CA0cd2e77f19a604", from:"+14155550111", startedAt:ts(70), endedAt:ts(69), durationSec:58, status:"completed",
@@ -484,6 +587,64 @@ var Demo = (function(){
     {name:"Hannah Cole",phone:"+14155550188",message:"Asked if you do leather jacket repair.",createdAt:ts(300)},
     {name:"Unknown caller",phone:"+14155550104",message:"Left a message about an invoice.",createdAt:ts(1500)}
   ];
+  /* teacher demo data (shapes match the teacher's grades / improvements / tool_requests collections) */
+  var SC=function(a,t,k,o,b){ return {accuracy:a,tool_use:t,task_completion:k,tone:o,brevity:b}; };
+  var gSeed=[
+    ["CA7d01a3","v1","answered",SC(4,8,5,8,7),5.2,4,"Gave a price for a silk dress that is not on file.",[{type:"invented_fact",turn:4,quote:"Silk dresses are $24.",explanation:"No such price in the business info or any tool result."}]],
+    ["CA7d02b9","v1","failed",SC(5,3,4,8,6),4.6,6,"Asked the caller to repeat the order number three times; the tool never ran.",[{type:"tool_error",turn:3,quote:"Could you say that number again?",explanation:"Caller had already given ORD-1038 clearly."}]],
+    ["CA7d03c2","v1","answered",SC(7,9,6,9,8),6.4,2,"Fine overall; guessed at Sunday hours.",[{type:"invented_fact",turn:2,quote:"We might be open Sunday morning.",explanation:"Hours say closed Sunday."}]],
+    ["CA7d04e1","v1","message_taken",SC(5,7,5,7,6),4.4,7,"Caller asked for a person twice before a message was taken.",[]],
+    ["CA7d05f7","v1","answered",SC(6,8,5,8,7),5.2,5,"Could not answer a pickup-time question and kept apologizing.",[]],
+    ["CA7d06a0","v2","answered",SC(7,8,7,8,8),6.8,2,"Admitted it did not have the price and offered a message. Good.",[]],
+    ["CA7d07b4","v2","answered",SC(8,9,6,9,8),7.1,3,"Correct and brief; no way to move a pickup.",[{type:"missed_question",turn:5,quote:"Can you move my pickup to Friday?",explanation:"No tool can change a pickup."}]],
+    ["CA7d08c8","v2","message_taken",SC(7,8,6,8,7),6.4,3,"Took a clean message with callback number.",[]],
+    ["CA7d09d3","v2","answered",SC(8,9,7,9,8),7.3,1,"Quick order status lookup.",[]],
+    ["CA7d10e6","v3","answered",SC(9,9,8,9,8),8.1,1,"Answered closing time from the hours.",[]],
+    ["CA7d11f2","v3","answered",SC(9,10,9,9,9),8.6,1,"Price, turnaround and order status in one short call.",[]],
+    ["CA7d12a9","v3","message_taken",SC(8,9,7,9,8),7.9,2,"Stain question handed off properly.",[]],
+    ["CA41be90c2d813aa","v3","answered",SC(10,10,9,9,8),9.0,0,"Hours, price and booking all handled with tool results.",[]],
+    ["CA0cd2e77f19a604","v3","message_taken",SC(9,10,9,9,8),8.8,0,"Stain callback message was complete.",[]]
+  ];
+  var grades=gSeed.map(function(r,i){ return {_id:r[0],call_id:r[0],config_version_id:r[1],outcome:r[2],scores:r[3],overall:r[4],frustration:r[5],rationale:r[6],issues:r[7],model:"gemini-3.8-flash",created_at:ts((gSeed.length-i)*170+30)}; });
+  var imps=[
+    {_id:"CA7d01a3_imp1",source_call_ids:["CA7d01a3"],type:"prompt",status:"applied",payload:{op:"add",rule_id:"r1",rule_kind:"guardrail",text:"If a caller asks about a price or policy that is not in your business information, say you don't have it on file and offer to take a message."},evidence_turns:[4],reason:"The agent invented a price for a silk dress.",applied_in_config_id:"v2",created_at:ts(900)},
+    {_id:"CA7d03c2_imp1",source_call_ids:["CA7d03c2"],type:"prompt",status:"applied",payload:{op:"add",rule_id:"r2",rule_kind:"behavior",text:"When asked what time you close today, answer from the hours above using today's day of the week."},evidence_turns:[2],reason:"Guessed at Sunday hours instead of reading them.",applied_in_config_id:"v3",created_at:ts(40)},
+    {_id:"CA7d05f7_imp1",source_call_ids:["CA7d05f7"],type:"context",status:"proposed",payload:{question:"Do you accept wedding dress drop-offs without an appointment?"},evidence_turns:[3],reason:"Caller asked and the agent had no answer.",created_at:ts(700)},
+    {_id:"CA7d07b4_imp1",source_call_ids:["CA7d07b4"],type:"context",status:"proposed",payload:{question:"What is the surcharge for same-day service?"},evidence_turns:[4],reason:"Two callers asked about same-day service.",created_at:ts(520)},
+    {_id:"CA7d04e1_imp1",source_call_ids:["CA7d04e1"],type:"prompt",status:"rejected",payload:{op:"add",rule_kind:"behavior",text:"Tell callers that rush service costs $15 extra."},evidence_turns:[2],reason:"Callers want rush prices.",rejected_reason:"rule contains facts not in the knowledge base: 15",created_at:ts(860)},
+    {_id:"CA7d07b4_imp2",source_call_ids:["CA7d07b4"],type:"tool",status:"proposed",payload:{tool:{name:"reschedule_pickup",description:"Move a scheduled pickup or delivery to a new date and time window.",side_effect:"write",parameters:[{name:"orderId",type:"string",description:"Order number",required:true},{name:"newDate",type:"string",description:"New date",required:true},{name:"window",type:"string",description:"Morning or afternoon",required:false}]}},evidence_turns:[5],reason:"Caller wanted to move their pickup and no tool could.",created_at:ts(520)}
+  ];
+  var toolReq=[
+    {_id:"reschedule_pickup",name:"reschedule_pickup",description:"Move a scheduled pickup or delivery to a new date and time window.",side_effect:"write",parameters:[{name:"orderId",type:"string",required:true},{name:"newDate",type:"string",required:true},{name:"window",type:"string",required:false}],status:"requested",request_count:4,reason:"Caller wanted to move their pickup and no tool could.",source_call_ids:["CA7d07b4"]},
+    {_id:"create_claim",name:"create_claim",description:"File a damage or missing-item claim on an order for the owner to review.",side_effect:"write",parameters:[{name:"orderId",type:"string",required:true},{name:"issue",type:"string",required:true}],status:"requested",request_count:2,reason:"Two callers reported a missing button and a stain after cleaning.",source_call_ids:["CA7d02b9"]},
+    {_id:"send_ready_text",name:"send_ready_text",description:"Text the customer when their order is ready for pickup.",side_effect:"write",parameters:[{name:"orderId",type:"string",required:true}],status:"approved",request_count:3,reason:"Callers ask to be notified instead of calling back.",source_call_ids:["CA7d05f7"]},
+    {_id:"get_loyalty_balance",name:"get_loyalty_balance",description:"Look up the caller's loyalty points and free-cleaning credits.",side_effect:"read",parameters:[{name:"phone",type:"string",required:true}],status:"enabled",request_count:6,reason:"Callers ask how many points they have.",source_call_ids:["CA7d01a3"],endpoint:"https://crm.cjscleaning.example/tools/get_loyalty_balance"},
+    {_id:"send_payment_link",name:"send_payment_link",description:"Text the caller a link to pay for an order.",side_effect:"write",parameters:[{name:"orderId",type:"string",required:true}],status:"declined",request_count:1,reason:"Caller wanted to pay by phone.",decided_note:"We take payment at pickup only.",source_call_ids:["CA7d08c8"]}
+  ];
+  var builtIn=[
+    {name:"get_order",description:"Look up an order by number, name or phone",sideEffect:"read"},{name:"lookup_price",description:"Price for one garment and speed",sideEffect:"read"},
+    {name:"list_prices",description:"Full price list",sideEffect:"read"},{name:"get_hours",description:"Open or closed, closing time, address",sideEffect:"read"},
+    {name:"quote_estimate",description:"Total for several garments with ready date",sideEffect:"read"},{name:"check_turnaround",description:"When a new drop-off would be ready",sideEffect:"read"},
+    {name:"get_customer",description:"Profile, recent orders, balance due",sideEffect:"read"},{name:"create_order",description:"Start a new drop-off order",sideEffect:"write"},
+    {name:"schedule_pickup",description:"Book a pickup or delivery",sideEffect:"write"},{name:"add_order_note",description:"Add a special-handling note to an order",sideEffect:"write"},{name:"take_message",description:"Save a message for staff",sideEffect:"write"}
+  ];
+  function col(name,count,owner,purpose,indexes,sample){ return {name:name,count:count,owner:owner,purpose:purpose,indexes:indexes,sample:sample}; }
+  var atlas={mode:"atlas",db:"cjs_cleaning",collections:[
+    col("customers",42,"bridge","One per person, keyed by phone. Preferences the agent can use (starch, hangers) and a running summary.",["_id: phone (unique)","name (text)"],{_id:"+14155550142",name:"Maria Lopez",preferences:{starch:"light",hangers:true},orderCount:11,lastOrderId:"ORD-1042"}),
+    col("orders",118,"bridge","Each order embeds its garments and stage history, so one read answers any status question.",["orderId (unique)","customerPhone + createdAt","stage + readyBy"],{orderId:"ORD-1042",customerPhone:"+14155550142",items:[{garment:"Wool coat",qty:1,service:"dry_clean",price:38.5}],stage:"Ready",speed:"regular",readyBy:"2026-10-11",payment:{status:"paid"},stageHistory:[{stage:"Received",at:"2026-10-07"},{stage:"Ready",at:"2026-10-10"}]}),
+    col("pricing",24,"bridge","Price list with aliases ('jeans' finds 'Pants (casual)') and turnaround days per speed.",["item (unique)","Atlas Search: item + aliases"],{item:"Suit (2-piece)",aliases:["two piece suit","business suit"],regularPrice:24,expeditedPrice:36,turnaroundDays:{regular:3,expedited:1}}),
+    col("store_hours",1,"owner","Weekly hours plus holiday exceptions, so 'are you open today?' is computed, not guessed.",["_id: main"],{_id:"main",timezone:"America/Los_Angeles",weekly:[{day:"mon",open:"08:00",close:"18:00"},{day:"sun",closed:true}],exceptions:[{date:"2026-11-26",closed:true,reason:"Thanksgiving"}]}),
+    col("appointments",9,"bridge","Pickups, deliveries and drop-offs with a time window.",["date + window","orderId"],{type:"pickup",orderId:"ORD-1041",date:"2026-10-12",window:"afternoon",status:"scheduled"}),
+    col("claims",2,"bridge","Damage or missing-item reports opened from a call, always reviewed by the owner.",["status + createdAt","orderId"],{claimId:"CLM-0002",orderId:"ORD-1040",type:"missing_item",description:"Button missing on blouse",status:"open",callSid:"CA7d02b9"}),
+    col("messages",31,"bridge","Messages left for staff, with callback number and priority.",["status + createdAt"],{name:"Devon",phone:"+14155550111",message:"Callback about a stain on a silk shirt.",status:"new"}),
+    col("calls",96,"bridge","Every call: transcript, tool calls, which config version handled it, and the outcome.",["callSid (unique)","startedAt","configVersion"],{callSid:"CA41be90c2d813aa",status:"completed",configVersion:3,toolCalls:[{name:"lookup_price"}],outcome:"answered"}),
+    col("config_versions",3,"bridge","Immutable versions of the agent's business info. Author is manager or teacher.",["version (unique)"],{version:3,author:"teacher",note:"Added hours question from call #12"}),
+    col("config_state",1,"bridge","One document pointing at the live version. Rolling back moves this pointer.",["_id: active"],{_id:"active",version:3}),
+    col("grades",14,"teacher","One per graded call: five scores, frustration, quoted issues.",["_id = callSid","config_version_id + created_at"],{_id:"CA7d06a0",overall:6.8,frustration:2,scores:{accuracy:7}}),
+    col("improvements",6,"teacher","Everything the teacher proposed, with evidence turns and final status.",["status + created_at","source_call_ids"],{_id:"CA7d01a3_imp1",type:"prompt",status:"applied",applied_in_config_id:"v2"}),
+    col("tool_requests",5,"teacher","New tools the teacher wants. Only the owner can enable one and set its endpoint.",["name (unique)","status + request_count"],{_id:"reschedule_pickup",status:"requested",request_count:4})
+  ]};
+  function find(arr2,key,v){ return arr2.filter(function(x){return x[key]===v;})[0]; }
   var tick = 0;
   var script = [
     ["caller","It's the wool coat I dropped off last week."],
@@ -503,9 +664,9 @@ var Demo = (function(){
   function clone(o){ return JSON.parse(JSON.stringify(o)); }
   /* company context (in-memory, oldest first) */
   var cfgV = [
-    {version:1,companyName:"Bright Press Cleaners",greeting:"Thanks for calling Bright Press Cleaners, how can I help?",context:"We are a neighborhood dry cleaner.\nHours: Mon-Fri 8am-6pm, Sat 9am-3pm, closed Sunday.\nServices: dry cleaning, laundry, pressing, alterations.\nTone: friendly and brief.",author:"system",note:"Initial setup",createdAt:ts(4320)},
-    {version:2,companyName:"Bright Press Cleaners",greeting:"Thanks for calling Bright Press Cleaners, how can I help?",context:"We are a neighborhood dry cleaner.\nHours: Mon-Fri 8am-6pm, Sat 8am-4pm, closed Sunday.\nServices: dry cleaning, laundry, pressing, alterations, wedding dress cleaning.\nPricing: wedding dress cleaning starts at $145 (5-7 day turnaround). Suits are $21 for two pieces.\nPayment is due at pickup. We are not responsible for items left over 60 days.\nTone: friendly and brief.",author:"manager",note:"Updated Saturday hours and added pricing",createdAt:ts(1440)},
-    {version:3,companyName:"Bright Press Cleaners",greeting:"Thanks for calling Bright Press Cleaners, this is the virtual receptionist. How can I help?",context:"We are a neighborhood dry cleaner.\nHours: Mon-Fri 8am-6pm, Sat 8am-4pm, closed Sunday.\nCaller question: what time do you close today? Answer with today's closing time from the hours above.\nServices: dry cleaning, laundry, pressing, alterations, wedding dress cleaning.\nPricing: wedding dress cleaning starts at $145 (5-7 day turnaround). Suits are $21 for two pieces.\nPayment is due at pickup. We are not responsible for items left over 60 days.\nTone: friendly and brief. If you cannot answer, take a message for the owner.",author:"teacher",note:"Added hours question from call #12",createdAt:ts(40)}
+    {version:1,companyName:"CJ's Cleaning",greeting:"Thanks for calling CJ's Cleaning, how can I help?",context:"We are a neighborhood dry cleaner.\nHours: Mon-Fri 8am-6pm, Sat 9am-3pm, closed Sunday.\nServices: dry cleaning, laundry, pressing, alterations.\nTone: friendly and brief.",author:"system",note:"Initial setup",createdAt:ts(4320)},
+    {version:2,companyName:"CJ's Cleaning",greeting:"Thanks for calling CJ's Cleaning, how can I help?",context:"We are a neighborhood dry cleaner.\nHours: Mon-Fri 8am-6pm, Sat 8am-4pm, closed Sunday.\nServices: dry cleaning, laundry, pressing, alterations, wedding dress cleaning.\nPricing: wedding dress cleaning starts at $145 (5-7 day turnaround). Suits are $21 for two pieces.\nPayment is due at pickup. We are not responsible for items left over 60 days.\nTone: friendly and brief.",author:"manager",note:"Updated Saturday hours and added pricing",createdAt:ts(1440)},
+    {version:3,companyName:"CJ's Cleaning",greeting:"Thanks for calling CJ's Cleaning, this is the virtual receptionist. How can I help?",context:"We are a neighborhood dry cleaner.\nHours: Mon-Fri 8am-6pm, Sat 8am-4pm, closed Sunday.\nCaller question: what time do you close today? Answer with today's closing time from the hours above.\nServices: dry cleaning, laundry, pressing, alterations, wedding dress cleaning.\nPricing: wedding dress cleaning starts at $145 (5-7 day turnaround). Suits are $21 for two pieces.\nPayment is due at pickup. We are not responsible for items left over 60 days.\nTone: friendly and brief. If you cannot answer, take a message for the owner.",author:"teacher",note:"Added hours question from call #12",createdAt:ts(40)}
   ];
   var cfgActive = 3;
   function cfgSnap(){
@@ -536,6 +697,26 @@ var Demo = (function(){
           cfgActive = f.version;
           return res(clone(f));
         }
+        var m1=p.match(/^\/api\/improvements\/([^/]+)\/answer$/);
+        if(method==="POST" && m1){
+          var im=find(imps,"_id",decodeURIComponent(m1[1])); var ans=(body.answer||"").trim();
+          if(!im||im.status!=="proposed") return fail(409,"Not an open question");
+          if(!ans) return fail(400,"Answer is empty");
+          var cur=find(cfgV,"version",cfgActive);
+          var nv={version:Math.max.apply(null,cfgV.map(function(x){return x.version;}))+1,companyName:cur.companyName,greeting:cur.greeting,context:cur.context+"\n"+im.payload.question+" "+ans,author:"manager",note:"Owner answered: "+im.payload.question,createdAt:new Date().toISOString()};
+          cfgV.push(nv); cfgActive=nv.version; im.status="applied"; im.payload.answer=ans; im.applied_in_config_id="v"+nv.version;
+          return res(clone(im));
+        }
+        var m2=p.match(/^\/api\/tool-requests\/([^/]+)\/(approve|decline|enable|disable)$/);
+        if(method==="POST" && m2){
+          var tr=find(toolReq,"name",decodeURIComponent(m2[1])), act2=m2[2];
+          if(!tr) return fail(404,"Unknown tool request");
+          var ok={approve:["requested"],decline:["requested","approved"],enable:["approved","disabled"],disable:["enabled"]}[act2];
+          if(ok.indexOf(tr.status)<0) return fail(409,"Tool is "+tr.status);
+          if(act2==="enable"){ if(!/^https:\/\/[^\s/]+\//.test(body.endpoint||"")) return fail(400,"Endpoint must be an https URL"); tr.endpoint=body.endpoint; }
+          tr.status={approve:"approved",decline:"declined",enable:"enabled",disable:"disabled"}[act2];
+          return res(clone(tr));
+        }
         fail(404,"Not found");
       },60);
     });
@@ -551,6 +732,10 @@ var Demo = (function(){
     else if(p.indexOf("/api/calls/")===0) out = calls.filter(function(c){return c.callSid===decodeURIComponent(p.slice(11));})[0];
     else if(p==="/api/orders") out = orders;
     else if(p==="/api/messages") out = messages;
+    else if(p==="/api/grades") out = grades;
+    else if(p==="/api/improvements") out = imps;
+    else if(p==="/api/tool-requests") out = {requests:toolReq,builtIn:builtIn};
+    else if(p==="/api/atlas") out = atlas;
     return new Promise(function(res){ setTimeout(function(){res(clone(out));},40); });
   }
   return {get:get,write:write};
@@ -703,7 +888,7 @@ function renderMessages(){
 }
 
 function renderAll(){
-  renderStatus(); renderBanner(); renderStats(); renderOverview(); renderCalls(); renderOrders(); renderMessages(); coRender();
+  renderStatus(); renderBanner(); renderStats(); renderOverview(); renderCalls(); renderOrders(); renderMessages(); coRender(); if(typeof renderTeacher==="function") renderTeacher();
 }
 
 /* ── Company context (versioned editor) ───────────────────────────────── */
@@ -988,7 +1173,7 @@ function refresh(){
     ]);
   }).then(function(r){
     S.stats=r[0]; S.calls=r[1]?arr(r[1]):S.calls; S.orders=r[2]?arr(r[2]):S.orders; S.messages=r[3]?arr(r[3]):S.messages;
-  }).catch(function(){ S.health=false; }).then(function(){ busy=false; renderAll(); });
+  }).catch(function(){ S.health=false; }).then(function(){ busy=false; renderAll(); return loadTeacher(); });
 }
 function schedule(){
   clearInterval(timer);
@@ -1003,6 +1188,7 @@ function setTab(t){
   document.querySelectorAll(".panel").forEach(function(p){ p.classList.toggle("active",p.id==="panel-"+t); });
   if(t==="calls") renderCalls();
   if(t==="company"){ coRender(); coFetch(); }
+  if(t==="improvements"||t==="tools"||t==="data"){ T.sg=T.sgt=T.sgd=null; renderTeacher(); loadTeacher(); }
 }
 $("tabs").addEventListener("click",function(e){ var b=e.target.closest(".tab"); if(b) setTab(b.getAttribute("data-tab")); });
 
@@ -1011,7 +1197,7 @@ function openSettings(){
   $("settings-ov").classList.remove("hidden"); $("in-api").focus();
 }
 function closeSettings(){ $("settings-ov").classList.add("hidden"); }
-function resetData(){ S.health=null; S.stats=S.calls=S.orders=S.messages=null; S.sel=null; S.sig={}; coReset(); ["call-list","detail","orders-wrap","messages-wrap","overview-recent","stats"].forEach(function(i){$(i).innerHTML="";}); }
+function resetData(){ T.grades=T.imps=T.tools=T.atlas=null; T.sg=T.sgt=T.sgd=T.sgo=null; S.health=null; S.stats=S.calls=S.orders=S.messages=null; S.sel=null; S.sig={}; coReset(); ["call-list","detail","orders-wrap","messages-wrap","overview-recent","stats"].forEach(function(i){$(i).innerHTML="";}); }
 function applySettings(){
   S.api=$("in-api").value.trim().replace(/\/+$/,""); S.token=$("in-token").value.trim(); S.demo=$("in-demo").checked;
   sset("hanger_api",S.api); sset("hanger_token",S.token); sset("hanger_demo",S.demo?"1":"0");
@@ -1040,6 +1226,213 @@ document.addEventListener("click",function(e){
   if(t.closest("[data-back]")){ S.sel=null; S.sig["call-list"]=null; S.sig.detail=null; $("detail").removeAttribute("data-sid"); renderCalls(); return; }
   var ci=t.closest(".call-item");
   if(ci){ S.sel=ci.getAttribute("data-sid"); S.sig.detail=null; S.sig["call-list"]=null; renderCalls(); if(window.matchMedia("(max-width:760px)").matches) window.scrollTo(0,0); }
+});
+
+/* ══ Teacher: improvements, tool requests, data model ═══════════════════ */
+var T = { grades:null, imps:null, tools:null, atlas:null, open:{}, busy:false, msg:{} };
+
+function loadTeacher(){
+  if(!configured() || S.health===false) return Promise.resolve();
+  return Promise.all([
+    api("/api/grades").catch(function(){return null;}),
+    api("/api/improvements").catch(function(){return null;}),
+    api("/api/tool-requests").catch(function(){return null;}),
+    api("/api/atlas").catch(function(){return null;})
+  ]).then(function(r){
+    if(r[0]) T.grades=arr(r[0]); if(r[1]) T.imps=arr(r[1]); if(r[2]) T.tools=r[2]; if(r[3]) T.atlas=r[3];
+    renderTeacher();
+  });
+}
+function mean(a){ return a.length? a.reduce(function(x,y){return x+y;},0)/a.length : null; }
+function f1(n){ return n==null?"–":(Math.round(n*10)/10).toFixed(1); }
+function gradesAsc(){ return arr(T.grades).slice().sort(function(a,b){ return (tms(a.created_at)||0)-(tms(b.created_at)||0); }); }
+function sbar(v){ var c=v>=8?"":v>=5?"mid":"lo"; return '<span class="sbar '+c+'" title="'+v+' / 10"><b style="width:'+(v*10)+'%"></b></span>'; }
+function impIcon(t){ return t==="prompt"?["✎","g"]:t==="context"?["?","w"]:t==="tool"?["⚙","b"]:["▤","b"]; }
+function impStatus(st){ var m={applied:"g",proposed:"w",rejected:"r",rolled_back:"r"}; return '<span class="chip '+(m[st]||"")+'">'+esc(String(st).replace("_"," "))+'</span>'; }
+function activeVersion(){ return CO.active && CO.active.version; }
+
+function renderKpis(g){
+  var last=g.slice(-6), prev=g.slice(-12,-6);
+  var o=mean(last.map(function(x){return x.overall;})), po=mean(prev.map(function(x){return x.overall;}));
+  var fr=mean(last.map(function(x){return x.frustration;}));
+  var ok=g.length? g.filter(function(x){return x.outcome==="answered"||x.outcome==="message_taken"||x.outcome==="booked";}).length/g.length : null;
+  var applied=arr(T.imps).filter(function(i){return i.status==="applied" && i.type==="prompt";}).length;
+  var open=arr(T.imps).filter(function(i){return i.status==="proposed" && i.type==="context";}).length + arr(T.tools&&T.tools.requests).filter(function(t){return t.status==="requested";}).length;
+  var delta = (o!=null&&po!=null)? o-po : null;
+  return '<div class="kpis">'+
+    '<div class="kpi"><div class="v">'+f1(o)+(delta!=null?'<small class="'+(delta>=0?"up":"down")+'">'+(delta>=0?"▲ ":"▼ ")+f1(Math.abs(delta))+'</small>':'')+'</div><div class="l">Quality score (last 6 calls, of 10)</div></div>'+
+    '<div class="kpi"><div class="v">'+f1(fr)+'</div><div class="l">Caller frustration (0 calm - 10)</div></div>'+
+    '<div class="kpi"><div class="v">'+(ok==null?"–":Math.round(ok*100)+"%")+'</div><div class="l">Calls resolved</div></div>'+
+    '<div class="kpi"><div class="v">'+applied+'</div><div class="l">Rules the agent learned</div></div>'+
+    '<div class="kpi attn"><div class="v">'+open+'</div><div class="l">Waiting for you</div></div></div>';
+}
+
+function chartSvg(g){
+  if(g.length<2) return '<div class="dt-empty">Grades appear here after the first calls are reviewed.</div>';
+  var W=900,H=250,L=34,R=60,Tp=26,B=28, n=g.length;
+  var x=function(i){ return L+(W-L-R)*i/(n-1); }, y=function(v){ return Tp+(H-Tp-B)*(1-v/10); };
+  var out='<svg class="chart" viewBox="0 0 '+W+' '+H+'" role="img" aria-label="Quality score and caller frustration per graded call">';
+  [0,5,10].forEach(function(v){ out+='<line class="grid" x1="'+L+'" x2="'+(W-R)+'" y1="'+y(v)+'" y2="'+y(v)+'"/><text x="'+(L-8)+'" y="'+(y(v)+4)+'" text-anchor="end">'+v+'</text>'; });
+  var lastV=null;
+  g.forEach(function(d,i){
+    if(lastV!==null && d.config_version_id!==lastV){
+      var imp=arr(T.imps).filter(function(m){return m.applied_in_config_id===d.config_version_id;})[0];
+      out+='<line class="ver-line" x1="'+x(i-.5)+'" x2="'+x(i-.5)+'" y1="'+(Tp-8)+'" y2="'+(H-B)+'"/><text class="ver-lbl" x="'+(x(i-.5)+5)+'" y="'+(Tp-12)+'">'+esc(d.config_version_id)+(imp&&imp.payload&&imp.payload.op==="add"?" · rule added":"")+'</text>';
+    }
+    lastV=d.config_version_id;
+  });
+  var pts=function(k){ return g.map(function(d,i){ return x(i).toFixed(1)+","+y(d[k]).toFixed(1); }).join(" "); };
+  out+='<polyline class="l-f" points="'+pts("frustration")+'"/><polyline class="l-o" points="'+pts("overall")+'"/>';
+  g.forEach(function(d,i){
+    var tip=esc(d.call_id+" · v"+String(d.config_version_id).replace("v","")+" · "+d.outcome+" · score "+d.overall+" · frustration "+d.frustration);
+    out+='<circle class="p-f" cx="'+x(i)+'" cy="'+y(d.frustration)+'" r="3"><title>'+tip+'</title></circle><circle class="p-o" cx="'+x(i)+'" cy="'+y(d.overall)+'" r="4.5"><title>'+tip+'</title></circle>';
+  });
+  var a=g[n-1];
+  out+='<text class="end-o" x="'+(x(n-1)+10)+'" y="'+(y(a.overall)+4)+'">'+f1(a.overall)+'</text><text class="end-f" x="'+(x(n-1)+10)+'" y="'+(y(a.frustration)+4)+'">'+f1(a.frustration)+'</text>';
+  out+='<text x="'+L+'" y="'+(H-6)+'">oldest call</text><text x="'+(W-R)+'" y="'+(H-6)+'" text-anchor="end">latest call</text></svg>';
+  return out;
+}
+
+function attentionHtml(){
+  var qs=arr(T.imps).filter(function(i){return i.type==="context"&&i.status==="proposed";});
+  var rows=qs.map(function(i){
+    var id=esc(i._id);
+    return '<div class="attn-item"><div class="attn-q">'+esc(i.payload.question||"")+'</div><div class="attn-why">The agent was asked this and didn\'t know. '+esc(i.reason||"")+' Your answer is added to your business info (new version, author: you).</div>'+
+      '<div class="ans"><input class="fi" data-ans="'+id+'" placeholder="Type the answer your agent should give" /><button class="btn sm" type="button" data-answer="'+id+'">Save answer</button></div>'+(T.msg[i._id]?'<div class="co-msg bad" style="margin-top:6px">'+esc(T.msg[i._id])+'</div>':'')+'</div>';
+  }).join("");
+  var tr=arr(T.tools&&T.tools.requests).filter(function(t){return t.status==="requested";}).sort(function(a,b){return b.request_count-a.request_count;});
+  var trows=tr.map(function(t){
+    return '<div class="attn-item"><div class="attn-q"><span class="mono">'+esc(t.name)+'()</span> <span class="chip b">new tool idea</span></div><div class="attn-why">'+esc(t.description)+' Asked for on <b>'+t.request_count+'</b> call'+(t.request_count>1?"s":"")+'.</div><div class="t-act" style="margin-top:9px"><button class="btn sm" type="button" data-tool="approve" data-name="'+esc(t.name)+'">Worth building</button><button class="btn sm ghost" type="button" data-tool="decline" data-name="'+esc(t.name)+'">Not for us</button></div></div>';
+  }).join("");
+  return '<div class="card"><div class="tw-hdr"><div class="tw-title">Needs your attention</div><div class="tw-meta">'+(qs.length+tr.length)+' open</div></div>'+
+    ((rows+trows)||'<div class="dt-empty">Nothing waiting. The agent has no open questions.</div>')+'</div>';
+}
+
+function feedHtml(){
+  var items=arr(T.imps).slice().sort(function(a,b){return (tms(b.created_at)||0)-(tms(a.created_at)||0);}).filter(function(i){return !(i.type==="context"&&i.status==="proposed");});
+  var av=activeVersion();
+  var rows=items.map(function(i){
+    var ic=impIcon(i.type), p=i.payload||{};
+    var title = i.type==="prompt" ? (p.op==="add"?"New rule: ":p.op==="modify"?"Rule updated: ":"Rule removed: ")+(p.text||p.rule_id||"") :
+                i.type==="context" ? "Owner answered: "+(p.question||"") :
+                i.type==="tool" ? "Tool idea: "+((p.tool&&p.tool.name)||"")+"()" : "Data idea: "+(p.text||"");
+    var d = i.type==="context" && p.answer ? "“"+p.answer+"”" : (i.reason||"");
+    var rb = (i.status==="applied" && i.applied_in_config_id && "v"+av===i.applied_in_config_id && i.type==="prompt") ? '<button class="btn sm ghost" type="button" data-rollback="'+esc(i.applied_in_config_id)+'">Undo</button>' : '';
+    return '<div class="feed-item"><div class="ico '+ic[1]+'">'+ic[0]+'</div><div><div class="feed-t">'+esc(title)+'</div><div class="feed-d">'+esc(d)+'</div>'+
+      '<div class="feed-m"><span class="chip">'+esc(i.type)+'</span>'+(i.applied_in_config_id?'<span class="chip g">live in '+esc(i.applied_in_config_id)+'</span>':'')+
+      (i.evidence_turns&&i.evidence_turns.length?'<span class="chip">evidence: turn '+i.evidence_turns.join(", ")+'</span>':'')+
+      (i.source_call_ids&&i.source_call_ids[0]?'<span class="chip mono">'+esc(String(i.source_call_ids[0]).slice(0,10))+'…</span>':'')+
+      (i.rejected_reason?'<span class="chip r">blocked: '+esc(i.rejected_reason)+'</span>':'')+(i.rolled_back_reason?'<span class="chip r">'+esc(i.rolled_back_reason)+'</span>':'')+'</div></div>'+
+      '<div class="feed-r">'+impStatus(i.status)+'<span class="td-mono">'+esc(relTime(i.created_at))+'</span>'+rb+'</div></div>';
+  }).join("");
+  return '<div class="card"><div class="tw-hdr"><div class="tw-title">What the teacher changed</div><div class="tw-meta">every change is versioned and reversible</div></div>'+(rows||'<div class="dt-empty">No changes yet.</div>')+'</div>';
+}
+
+function gradesTable(g){
+  var rows=g.slice().reverse().map(function(d){
+    var s=d.scores||{}, open=T.open[d.call_id];
+    var main='<tr class="gr" data-gr="'+esc(d.call_id)+'"><td class="td-mono nowrap">'+esc(String(d.call_id).slice(0,12))+'</td><td class="nowrap">'+esc(relTime(d.created_at))+'</td><td><span class="chip '+(d.outcome==="failed"?"r":d.outcome==="message_taken"?"b":"g")+'">'+esc(String(d.outcome).replace("_"," "))+'</span></td>'+
+      '<td class="nowrap"><span class="score">'+f1(d.overall)+'</span></td><td class="nowrap">'+["accuracy","tool_use","task_completion","tone","brevity"].map(function(k){return sbar(s[k]||0);}).join(" ")+'</td><td class="nowrap">'+f1(d.frustration)+'</td><td><span class="chip">'+esc(d.config_version_id||"–")+'</span></td></tr>';
+    if(!open) return main;
+    var iss=arr(d.issues).map(function(i){ return '<div class="iss"><span class="chip r">'+esc(String(i.type).replace("_"," "))+'</span> turn '+i.turn+': <q>'+esc(i.quote)+'</q> — '+esc(i.explanation)+'</div>'; }).join("");
+    return main+'<tr class="gr-d"><td colspan="7"><div style="font-size:.88rem;line-height:1.55">'+esc(d.rationale||"")+'</div>'+(iss||'<div class="iss td-mono">No issues flagged.</div>')+
+      '<div class="td-mono" style="margin-top:8px">accuracy '+s.accuracy+' · tool use '+s.tool_use+' · task completion '+s.task_completion+' · tone '+s.tone+' · brevity '+s.brevity+' · graded by '+esc(d.model||"teacher")+'</div></td></tr>';
+  }).join("");
+  return '<div class="table-wrap"><div class="tw-hdr"><div class="tw-title">Graded calls</div><div class="tw-meta">click a row for the reasoning</div></div><div class="tscroll"><table><thead><tr><th>Call</th><th>When</th><th>Outcome</th><th>Score</th><th>Accuracy · Tools · Task · Tone · Brevity</th><th>Frustr.</th><th>Config</th></tr></thead><tbody>'+rows+'</tbody></table></div></div>';
+}
+
+function renderImprovements(){
+  var el=$("imp-root");
+  if(!configured()){ el.innerHTML=setupEmpty("Connect to see how the teaching agent is grading calls and improving your receptionist."); T.sg=null; return; }
+  if(!T.grades){ el.innerHTML='<div class="empty"><p>Loading…</p></div>'; return; }
+  var sg=sig([T.grades,T.imps,T.tools,T.open,T.msg,activeVersion()]);
+  if(T.sg===sg) return; T.sg=sg;
+  var g=gradesAsc();
+  el.innerHTML = '<div class="sec-h"><div><h2>How the agent is learning</h2><p>After every call a separate AI teacher grades it, writes small rules to fix mistakes, and asks you only when it is missing a fact.</p></div></div>'+
+    renderKpis(g)+
+    '<div class="card chart-card"><div class="chart-top"><div class="tw-title">Quality and frustration, call by call</div><div class="legend"><span><i></i>Quality score</span><span><i class="f"></i>Caller frustration</span></div></div><div class="chart-scroll">'+chartSvg(g)+'</div></div>'+
+    '<div class="two"><div>'+attentionHtml()+'</div><div>'+feedHtml()+'</div></div>'+
+    '<div class="sec-h"><h2>Graded calls</h2></div>'+gradesTable(g);
+}
+
+/* tools */
+function toolCard(t){
+  var ps=arr(t.parameters).map(function(p){ return '<span>'+esc(p.name)+(p.required?"":"?")+': '+esc(p.type)+'</span>'; }).join("");
+  var n=esc(t.name);
+  var acts="";
+  if(t.status==="requested") acts='<button class="btn sm" type="button" data-tool="approve" data-name="'+n+'">Worth building</button><button class="btn sm ghost" type="button" data-tool="decline" data-name="'+n+'">Decline</button>';
+  else if(t.status==="approved") acts='<div class="t-ep" style="width:100%"><input class="fi" data-ep="'+n+'" placeholder="https://your-crm.com/tools/'+n+'" /><button class="btn sm" type="button" data-tool="enable" data-name="'+n+'">Go live</button></div>';
+  else if(t.status==="enabled") acts='<button class="btn sm ghost" type="button" data-tool="disable" data-name="'+n+'">Turn off</button>';
+  return '<div class="tcard'+(t.status==="enabled"?" live":"")+'"><div class="t-name">'+n+'()</div><div class="t-desc">'+esc(t.description)+'</div>'+
+    (ps?'<div class="params">'+ps+'</div>':'')+
+    '<div class="t-ask">Asked for on <b>'+t.request_count+'</b> call'+(t.request_count>1?'s':'')+' · <span class="chip '+(t.side_effect==="write"?"w":"")+'">'+(t.side_effect==="write"?"changes data":"read only")+'</span></div>'+
+    (t.reason?'<div class="t-note">“'+esc(t.reason)+'”</div>':'')+
+    (t.status==="enabled"&&t.endpoint?'<div class="td-mono" style="margin:6px 0;word-break:break-all">→ '+esc(t.endpoint)+'</div>':'')+
+    (t.decided_note?'<div class="t-note">Note: '+esc(t.decided_note)+'</div>':'')+
+    (T.msg["tool:"+t.name]?'<div class="co-msg bad">'+esc(T.msg["tool:"+t.name])+'</div>':'')+
+    '<div class="t-act" style="margin-top:8px">'+acts+'</div></div>';
+}
+function renderTools(){
+  var el=$("tools-root");
+  if(!configured()){ el.innerHTML=setupEmpty("Connect to see the tools your agent has and the new ones it is asking for."); T.sgt=null; return; }
+  if(!T.tools){ el.innerHTML='<div class="empty"><p>Loading…</p></div>'; return; }
+  var sg=sig([T.tools,T.msg]); if(T.sgt===sg) return; T.sgt=sg;
+  var rq=arr(T.tools.requests).slice().sort(function(a,b){return b.request_count-a.request_count;});
+  var lane=function(title,sts){ var xs=rq.filter(function(t){return sts.indexOf(t.status)>=0;}); return '<div class="lane"><div class="lane-h">'+title+' <b>'+xs.length+'</b></div>'+(xs.map(toolCard).join("")||'<div class="t-note" style="padding:0 6px">Nothing here.</div>')+'</div>'; };
+  el.innerHTML='<div class="sec-h"><div><h2>Tools</h2><p>The agent can only do what its tools allow. When callers need something it can\'t do, the teacher requests a new tool. You (or whoever owns your CRM) decide, build it, and switch it on.</p></div></div>'+
+    '<div class="flow"><b>Teacher asks</b><span class="arr">→</span><b>You approve</b><span class="arr">→</span><b>CRM builds the endpoint</b><span class="arr">→</span><b>You go live</b><span class="arr">→</span><span>agent uses it on the next call</span></div>'+
+    '<div class="pipe">'+lane("Requested",["requested"])+lane("Approved · to build",["approved"])+lane("Live",["enabled"])+lane("Declined / off",["declined","disabled"])+'</div>'+
+    '<div class="sec-h"><h2>Built-in tools</h2></div><div class="builtin">'+arr(T.tools.builtIn).map(function(b){ return '<span title="'+esc(b.description||"")+'">'+esc(b.name)+'<em>'+(b.sideEffect==="write"?"writes":"reads")+'</em></span>'; }).join("")+'</div>';
+}
+
+/* data model */
+function renderData(){
+  var el=$("data-root");
+  if(!configured()){ el.innerHTML=setupEmpty("Connect to see how your data is organized in MongoDB Atlas."); T.sgd=null; return; }
+  if(!T.atlas){ el.innerHTML='<div class="empty"><p>Loading…</p></div>'; return; }
+  var sg=sig(T.atlas); if(T.sgd===sg) return; T.sgd=sg;
+  var A=T.atlas, groups=[["Shop data","The business: customers, orders, prices, hours.",["customers","orders","pricing","store_hours","appointments","claims","messages"]],["Calls and the voice agent","What happened on the phone and which settings were used.",["calls","config_versions","config_state"]],["The teacher","How the agent gets better.",["grades","improvements","tool_requests"]]];
+  var by={}; arr(A.collections).forEach(function(c){ by[c.name]=c; });
+  var html='<div class="sec-h"><div><h2>Data on MongoDB Atlas</h2><p>One document per real-world thing, with its history embedded: an order carries its garments and stage history, so a call looks it up in one read.</p></div><span class="chip '+(A.mode==="atlas"?"g":"w")+'">'+(A.mode==="atlas"?"Connected to Atlas · "+esc(A.db):"In-memory demo store (set MONGODB_URI for Atlas)")+'</span></div>';
+  groups.forEach(function(gr){
+    html+='<div class="sec-h" style="margin-top:22px"><div><h2 style="font-size:1.05rem">'+gr[0]+'</h2><p>'+gr[1]+'</p></div></div><div class="colgrid">';
+    gr[2].forEach(function(n){
+      var c=by[n]; if(!c) return;
+      html+='<div class="col"><div class="col-h"><span class="col-n">'+esc(c.name)+'</span><span class="col-c">'+esc(c.count)+'</span></div><div class="col-p">'+esc(c.purpose)+'</div><span class="chip '+(c.owner==="teacher"?"b":c.owner==="owner"?"w":"g")+' own">written by '+esc(c.owner)+'</span>'+
+        '<div class="col-i">'+arr(c.indexes).map(function(x){return "⌗ "+esc(x);}).join("<br>")+'</div>'+
+        (c.sample?'<details><summary>Sample document</summary><pre>'+esc(JSON.stringify(c.sample,null,2))+'</pre></details>':'')+'</div>';
+    });
+    html+='</div>';
+  });
+  el.innerHTML=html;
+}
+
+function renderTeacher(){ renderImprovements(); renderTools(); renderData(); renderAtlasChip(); renderOverviewQuality(); }
+function renderAtlasChip(){
+  var c=$("atlas-chip"), t=$("atlas-text");
+  if(!T.atlas){ c.classList.add("off"); t.textContent=configured()?"Data store":"Not connected"; return; }
+  var on=T.atlas.mode==="atlas"; c.classList.toggle("off",!on);
+  t.textContent = on ? "Atlas · "+T.atlas.db : (S.demo?"Atlas · demo":"In-memory store");
+}
+function renderOverviewQuality(){
+  var el=$("overview-quality"); if(!el) return;
+  var g=gradesAsc();
+  if(!configured()||g.length<2){ el.innerHTML=""; return; }
+  var sg=sig([g.length,g[g.length-1].overall,T.imps&&T.imps.length]); if(T.sgo===sg) return; T.sgo=sg;
+  el.innerHTML=renderKpis(g)+'<div class="card chart-card"><div class="chart-top"><div class="tw-title">Is the agent getting better?</div><div class="legend"><span><i></i>Quality score</span><span><i class="f"></i>Caller frustration</span></div></div><div class="chart-scroll">'+chartSvg(g)+'</div></div>';
+}
+
+/* actions */
+function post(path,body){ return api(path,{method:"POST",body:body||{}}); }
+function act(key,p){ T.msg[key]=""; return p.then(function(){ return loadTeacher(); }).catch(function(e){ T.msg[key]=e.message||"Failed"; renderTeacher(); }); }
+document.addEventListener("click",function(e){
+  var t=e.target, b;
+  if((b=t.closest("[data-answer]"))){ var id=b.getAttribute("data-answer"), inp=document.querySelector('[data-ans="'+id+'"]'); var v=inp&&inp.value.trim(); if(!v){ T.msg[id]="Type an answer first."; T.sg=null; renderImprovements(); return; } act(id,post("/api/improvements/"+encodeURIComponent(id)+"/answer",{answer:v}).then(function(){ coFetch(); })); return; }
+  if((b=t.closest("[data-tool]"))){ var n=b.getAttribute("data-name"), a=b.getAttribute("data-tool"), body={};
+    if(a==="enable"){ var ep=document.querySelector('[data-ep="'+n+'"]'); body.endpoint=ep?ep.value.trim():""; }
+    act("tool:"+n,post("/api/tool-requests/"+encodeURIComponent(n)+"/"+a,body)); return; }
+  if((b=t.closest("[data-rollback]"))){ var cv=b.getAttribute("data-rollback"); var cur=CO.versions.filter(function(x){return "v"+x.version===cv;})[0]; var parent=cur&&CO.versions.filter(function(x){return x.version<cur.version;}).sort(function(a,c){return c.version-a.version;})[0]; if(parent){ post("/api/config/activate",{version:parent.version}).then(function(){ coFetch(); loadTeacher(); }); } return; }
+  if((b=t.closest("[data-gr]"))){ var c=b.getAttribute("data-gr"); T.open[c]=!T.open[c]; T.sg=null; renderImprovements(); return; }
 });
 
 renderAll();

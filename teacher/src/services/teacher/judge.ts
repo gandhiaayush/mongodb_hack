@@ -1,5 +1,6 @@
 import { GoogleGenAI } from "@google/genai";
 import { z } from "zod";
+import { BUILT_IN_TOOLS } from "./tools.js";
 import type { CallDoc, ConfigVersionDoc } from "../mongo/types.js";
 
 const score = z.coerce.number().min(0).max(10);
@@ -23,6 +24,14 @@ export const JudgeOutput = z.object({
     rule_kind: z.enum(["guardrail", "behavior"]).optional(),
     text: z.string().optional(),
     question: z.string().optional(),
+    tool: z.object({
+      name: z.string(),
+      description: z.string(),
+      parameters: z.array(z.object({
+        name: z.string(), type: z.string(), description: z.string().default(""), required: z.boolean().default(true),
+      })).default([]),
+      side_effect: z.string().default("read"),
+    }).optional(),
     evidence_turns: z.array(z.coerce.number().int()).default([]),
     reason: z.string().default(""),
   })).default([]),
@@ -50,7 +59,10 @@ IMPROVEMENTS (at most 3, fewer is better, zero is fine for a good call):
   rule_id must be the id of a rule listed in CURRENT RULES, for example "r2". Locked rules cannot be modified or removed.
   Rules describe BEHAVIOR and must generalize beyond this one call. A rule must NEVER contain a business fact (price, hour, address, policy).
 - type "context": the agent lacked a fact. Do NOT guess the fact. Put the question the OWNER must answer in "question".
-- type "tool" / "schema": a missing tool or data field. Describe it in "text". These are proposals only.
+- type "tool": the caller needed something no existing tool can do (for example rescheduling a pickup, checking a delivery slot).
+  Give a structured "tool": {name (snake_case), description (when the voice model should call it), parameters [{name,type: string|number|integer|boolean,description,required}], side_effect "read"|"write"}.
+  Do NOT propose a tool that duplicates a listed existing tool. Only request one when a real caller need went unmet; the owner decides whether to build it.
+- type "schema": a missing data field. Describe it in "text". Proposal only.
 Every improvement needs evidence_turns (turn numbers) and a one-sentence reason. Do not add a rule that duplicates an existing one; modify it instead.
 When the agent got something wrong, propose the rule that would have prevented it, saying exactly what to do in that situation. Do this even if a broader rule already exists, because it was not enough: modify that rule if it is not locked, otherwise add a more specific one. Do not propose rules for things the agent did well.
 
@@ -59,11 +71,13 @@ Reply with ONLY a JSON object:
  "issues":[{"type":"invented_fact|missed_question|rule_violation|tool_error|tone|verbosity|other","turn":0,"quote":"","explanation":""}],
  "improvements":[{"type":"prompt","op":"add","rule_kind":"guardrail","text":"","evidence_turns":[0],"reason":""},
                  {"type":"prompt","op":"modify","rule_id":"r0","text":"","evidence_turns":[0],"reason":""},
-                 {"type":"context","question":"","evidence_turns":[0],"reason":""}]}`;
+                 {"type":"context","question":"","evidence_turns":[0],"reason":""},
+                 {"type":"tool","tool":{"name":"","description":"","parameters":[{"name":"","type":"string","description":"","required":true}],"side_effect":"read"},"evidence_turns":[0],"reason":""}]}`;
 
 export function buildJudgeInput(call: CallDoc, cfg: ConfigVersionDoc): string {
   const rules = cfg.rules.map((r) => `${r.id} [${r.kind}${r.locked ? ", locked" : ""}]: ${r.text}`).join("\n");
   const transcript = call.transcript.map((t) => `[${t.turn}] ${t.role}: ${t.text}`).join("\n");
+  const existing = BUILT_IN_TOOLS.join(", ");
   const tools = call.tool_trace.length ? JSON.stringify(call.tool_trace, null, 1) : "(no tool calls)";
   return `CURRENT RULES (config v${cfg.version}):
 ${rules || "(none)"}
@@ -73,6 +87,8 @@ ${cfg.context || "(none)"}
 
 OUTCOME LABEL: ${call.outcome}
 (from tool results only: "message_taken" = a message was saved, "failed" = a tool returned an error, "answered" = neither, which does not mean the caller was satisfied)
+
+EXISTING TOOLS: ${existing}
 
 TOOL TRACE:
 ${tools}

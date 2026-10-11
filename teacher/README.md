@@ -41,3 +41,23 @@ The teacher keeps its rules in a `LEARNED RULES` block at the end of the config'
 - A rule containing a number that is not already in the config is rejected.
 - At most 3 rule changes per call, 20 rules total, locked rules cannot be touched.
 - Config versions are immutable; rollback is one pointer change.
+
+## Tool requests
+
+The teacher can ask for a new tool but never creates one. When a caller needs something no tool can do, the judge
+proposes a structured tool (name, description, typed parameters, read/write). It is validated in code (snake_case name,
+not a built-in, at most 6 parameters) and stored in `tool_requests` with status `requested`. Repeat asks from other calls
+raise `request_count`, which orders the owner's build list.
+
+```
+npm run tools [status]                       # list requests, most asked first
+npm run tools -- ... or: tsx scripts/cli.ts tool-approve <name>      # worth building
+tsx scripts/cli.ts tool-decline <name> [note]
+tsx scripts/cli.ts tool-enable <name> <https-endpoint>   # owner built it; live on the next call
+tsx scripts/cli.ts tool-disable <name>
+```
+
+Only an owner action can enable a tool and set its `endpoint`. The bridge (`src/services/gemini/tools.ts`) loads enabled
+tools at call start, declares them to Gemini Live, and POSTs `{ tool, args }` to the endpoint (5 s timeout, declared
+arguments only, optional `x-tool-secret` from `CUSTOM_TOOL_SECRET`). Until then the receptionist keeps its fallback
+(take a message). Model: set `GEMINI_TEACHER_MODEL` to change the grader.

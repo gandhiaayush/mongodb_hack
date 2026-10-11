@@ -1,8 +1,9 @@
 import { fromConfig, renderContext, toCall, versionOf } from "../mongo/bridge.js";
 import { cols, getActiveConfig, getConfig } from "../mongo/client.js";
-import type { BridgeCall, ConfigVersionDoc, GradeDoc, ImprovementDoc } from "../mongo/types.js";
+import type { BridgeCall, ConfigVersionDoc, GradeDoc, ImprovementDoc, ToolRequestDoc } from "../mongo/types.js";
 import { geminiJudge, teacherModel, type Judge } from "./judge.js";
 import { buildPlan, LIMITS, regression } from "./plan.js";
+import { TOOL_LIMITS, validateEndpoint } from "./tools.js";
 
 export interface TeachResult {
   grade: GradeDoc;
@@ -66,6 +67,7 @@ export async function teach(callId: string, judge: Judge = geminiJudge): Promise
     (version) => buildPlan(out, call, base, teacherModel(), now, version), (p) => p.nextConfig);
   if (plan.improvements.length) await c.improvements.insertMany(plan.improvements);
   if (plan.nextConfig) await setActive(plan.nextConfig.version);
+  for (const r of plan.toolRequests) await recordToolRequest(r);
   return {
     grade, improvements: plan.improvements, newConfig: plan.nextConfig, alreadyGraded: false,
     rolledBack: rolledBack && { from: rolledBack.from, to: rolledBack.to, reason: rolledBack.reason },
@@ -190,3 +192,56 @@ export async function activeContext(): Promise<string> {
   const cfg = await getActiveConfig();
   return `COMPANY: ${cfg.company_name} (config ${cfg._id})\n\n${renderContext(cfg)}`;
 }
+
+// ---- Tool requests ------------------------------------------------------------------------------
+
+/**
+ * Adds a teacher request, or counts another call asking for the same tool. An existing request keeps
+ * its status and owner-set fields: a declined tool is not reopened by the teacher asking again.
+ */
+async function recordToolRequest(r: ToolRequestDoc) {
+  const c = await cols();
+  const { _id, ...fields } = r;
+  const res = await c.toolRequests.updateOne({ _id }, { $setOnInsert: fields }, { upsert: true });
+  if (res.upsertedCount) return;
+  await c.toolRequests.updateOne({ _id: r._id, source_call_ids: { $ne: r.source_call_ids[0] } }, {
+    $inc: { request_count: 1 }, $push: { source_call_ids: r.source_call_ids[0]! }, $set: { updated_at: new Date() },
+  });
+}
+
+/** Requests sorted by how many calls asked for them: the owner's build list. */
+export async function listToolRequests(status?: ToolRequestDoc["status"]) {
+  const c = await cols();
+  return c.toolRequests.find(status ? { status } : {}).sort({ request_count: -1, created_at: 1 }).toArray();
+}
+
+async function openRequest(name: string, from: ToolRequestDoc["status"][], to: ToolRequestDoc["status"], set: Partial<ToolRequestDoc> = {}) {
+  const c = await cols();
+  const res = await c.toolRequests.findOneAndUpdate(
+    { _id: name, status: { $in: from } }, { $set: { ...set, status: to, updated_at: new Date() } }, { returnDocument: "after" });
+  if (!res) throw new Error(`tool request "${name}" not found or not in status ${from.join("/")}`);
+  return res;
+}
+
+/** Owner agrees the tool is worth building. Nothing is exposed to the receptionist yet. */
+export const approveToolRequest = (name: string, note?: string) =>
+  openRequest(name, ["requested"], "approved", note ? { decided_note: note } : {});
+
+export const declineToolRequest = (name: string, note?: string) =>
+  openRequest(name, ["requested", "approved"], "declined", note ? { decided_note: note } : {});
+
+/**
+ * Owner has built the tool and gives its endpoint. From the next call the bridge exposes it to the
+ * receptionist. Only this function (a person's action) can enable a tool; the teacher cannot.
+ */
+export async function enableTool(name: string, endpoint: string) {
+  const bad = validateEndpoint(endpoint);
+  if (bad) throw new Error(bad);
+  const c = await cols();
+  if ((await c.toolRequests.countDocuments({ status: "enabled", _id: { $ne: name } })) >= TOOL_LIMITS.maxEnabled)
+    throw new Error(`already ${TOOL_LIMITS.maxEnabled} custom tools enabled; disable one first`);
+  return openRequest(name, ["approved", "disabled"], "enabled", { endpoint, enabled_at: new Date() });
+}
+
+export const disableTool = (name: string, note?: string) =>
+  openRequest(name, ["enabled"], "disabled", note ? { decided_note: note } : {});

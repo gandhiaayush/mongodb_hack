@@ -7,7 +7,7 @@ import {
 } from "@google/genai";
 import { createDataStore, type ConfigVersion, type DataStore } from "../data/store";
 import type { CallRecorder } from "../calls/recorder";
-import { TOOLS, executeTool } from "./tools";
+import { TOOLS, customDeclarations, executeCustomTool, executeTool, usableCustomTools } from "./tools";
 import { buildSystemPrompt } from "./systemPrompt";
 import { twilioToGemini, geminiToTwilio } from "../audio/converter";
 
@@ -41,6 +41,13 @@ export async function openGeminiSession(opts: GeminiSessionOptions): Promise<Gem
   const store = await getStore();
   const activeConfig: ConfigVersion = await store.getActiveConfig();
   recorder?.setConfigVersion(activeConfig.version);
+  // Owner-enabled custom tools; a lookup failure must never block the call.
+  const customTools = usableCustomTools(await store.getEnabledTools().catch((err) => {
+    console.error("[tools] could not load custom tools:", err);
+    return [];
+  }));
+  const customByName = new Map(customTools.map((t) => [t.name, t]));
+  if (customTools.length) console.log(`[tools] custom tools enabled: ${customTools.map((t) => t.name).join(", ")}`);
   const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
   const today = new Date().toLocaleDateString("en-US", {
     weekday: "long",
@@ -61,7 +68,7 @@ export async function openGeminiSession(opts: GeminiSessionOptions): Promise<Gem
         voiceConfig: { prebuiltVoiceConfig: { voiceName: "Aoede" } },
         languageCode: "en-US",
       },
-      tools: [{ functionDeclarations: TOOLS }],
+      tools: [{ functionDeclarations: [...TOOLS, ...customDeclarations(customTools)] }],
       realtimeInputConfig: {
         automaticActivityDetection: {
           disabled: false,
@@ -98,7 +105,8 @@ export async function openGeminiSession(opts: GeminiSessionOptions): Promise<Gem
               const name = fc.name ?? "";
               const args = (fc.args as Record<string, unknown>) ?? {};
               try {
-                const result = await executeTool(name, args, store);
+                const custom = customByName.get(name);
+                const result = custom ? await executeCustomTool(custom, args) : await executeTool(name, args, store);
                 const short = JSON.stringify(result).slice(0, 200);
                 console.log(`[tool] ${name} ${JSON.stringify(args)} -> ${short}`);
                 recorder?.addToolCall(name, args, result);

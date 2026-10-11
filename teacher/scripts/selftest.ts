@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { JudgeOutput } from "../src/services/teacher/judge.js";
 import { buildPlan, overallScore, regression } from "../src/services/teacher/plan.js";
 import { deriveOutcome, fromConfig, splitContext, toCall, toConfig } from "../src/services/mongo/bridge.js";
+import { validateEndpoint, validateToolSpec } from "../src/services/teacher/tools.js";
 import { demoCalls, demoConfig } from "../fixtures/seed.js";
 
 // Bridge documents -> teacher's view.
@@ -32,7 +33,11 @@ const out = JudgeOutput.parse({
     { type: "prompt", op: "remove", rule_id: "r1", evidence_turns: [2], reason: "x" },
     { type: "prompt", op: "add", evidence_turns: [99], reason: "x", text: "Be nice." },
     { type: "context", question: "Do you accept walk-ins?", evidence_turns: [1], reason: "x" },
-    { type: "tool", text: "Add a reschedule_appointment tool.", evidence_turns: [1], reason: "x" },
+    { type: "tool", evidence_turns: [1], reason: "caller wanted to move their appointment",
+      tool: { name: "reschedule_appointment", description: "Move an existing appointment to a new time.", side_effect: "write",
+        parameters: [{ name: "appointment_id", type: "string", description: "id", required: true }, { name: "new_time", type: "string", description: "ISO time", required: true }] } },
+    { type: "tool", text: "Add a reschedule_appointment tool.", evidence_turns: [1], reason: "no structured spec" },
+    { type: "tool", evidence_turns: [1], reason: "x", tool: { name: "get_order", description: "dup of a built-in", parameters: [], side_effect: "read" } },
   ],
 });
 
@@ -42,9 +47,20 @@ const status = plan.improvements.map((i) => i.status);
 assert.equal(plan.grade.overall, overallScore(out.scores));
 assert.equal(plan.grade.overall, 5.7);
 assert.equal(plan.grade.issues.length, 1, "fabricated quote dropped");
-assert.deepEqual(status, ["applied", "rejected", "rejected", "rejected", "proposed", "proposed"]);
+assert.deepEqual(status, ["applied", "rejected", "rejected", "rejected", "proposed", "proposed", "rejected", "rejected"]);
 assert.match(plan.improvements[1]!.rejected_reason!, /120/, "rule with an invented price blocked");
 assert.match(plan.improvements[2]!.rejected_reason!, /locked/);
+// Tool requests: only a valid, non-built-in spec becomes a request, and it can only be "requested".
+assert.deepEqual(plan.toolRequests.map((t) => [t._id, t.status, t.side_effect, t.parameters.length]), [["reschedule_appointment", "requested", "write", 2]]);
+assert.equal(plan.improvements[5]!.payload.tool?.name, "reschedule_appointment");
+assert.match(plan.improvements[6]!.rejected_reason!, /structured/);
+assert.match(plan.improvements[7]!.rejected_reason!, /built-in/);
+assert.equal(validateEndpoint("http://evil.example.com/x"), "endpoint must be https");
+assert.equal(validateEndpoint("https://user:pw@crm.example.com/x"), "endpoint must not contain credentials");
+assert.equal(validateEndpoint("https://crm.example.com/tools/reschedule"), null);
+assert.equal(validateEndpoint("http://localhost:4000/t"), null);
+assert.ok("error" in validateToolSpec({ name: "Bad Name", description: "x" }));
+assert.ok("error" in validateToolSpec({ name: "ok_tool", description: "x", parameters: [{ name: "a", type: "object" }] }));
 assert.ok(plan.nextConfig);
 assert.equal(plan.nextConfig.version, 2);
 assert.equal(plan.nextConfig.rules.length, 3);

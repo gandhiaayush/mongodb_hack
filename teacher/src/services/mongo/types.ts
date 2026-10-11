@@ -117,6 +117,7 @@ export interface ImprovementDoc {
     text?: string;
     question?: string; // context: question for the owner
     answer?: string; // filled in when the owner replies
+    tool?: ToolSpec; // tool: the structured request (see tool_requests)
   };
   evidence_turns: number[];
   reason: string;
@@ -124,4 +125,44 @@ export interface ImprovementDoc {
   rolled_back_reason?: string; // why the version that applied it was rolled back
   applied_in_config_id?: string;
   created_at: Date;
+}
+
+// ---- Tool requests ---------------------------------------------------------------------------
+// The teacher can ask for a new tool but never creates one. A request moves
+//   requested -> approved -> enabled        (owner decisions; the teacher cannot do these)
+//   requested|approved -> declined,  enabled -> disabled
+// Only an owner supplies the `endpoint` that makes a tool real; the bridge exposes enabled tools
+// to the receptionist and calls the endpoint when the model uses the tool.
+
+export type ToolParamType = "string" | "number" | "integer" | "boolean";
+
+export interface ToolParam {
+  name: string;
+  type: ToolParamType;
+  description: string;
+  required: boolean;
+}
+
+/** What the teacher proposes: the shape of the tool, not its implementation. */
+export interface ToolSpec {
+  name: string; // snake_case, unique, not a built-in tool
+  description: string; // tells the voice model when to call it
+  parameters: ToolParam[];
+  side_effect: "read" | "write";
+}
+
+export type ToolRequestStatus = "requested" | "approved" | "enabled" | "declined" | "disabled";
+
+/** `tool_requests` collection, `_id` = tool name. The bridge reads documents with status "enabled". */
+export interface ToolRequestDoc extends ToolSpec {
+  _id: string;
+  status: ToolRequestStatus;
+  reason: string; // why the teacher wants it
+  request_count: number; // how many calls asked for it (priority signal)
+  source_call_ids: string[];
+  endpoint?: string; // set by the owner on enable: the bridge POSTs { tool, args } here
+  decided_note?: string;
+  created_at: Date;
+  updated_at: Date;
+  enabled_at?: Date;
 }

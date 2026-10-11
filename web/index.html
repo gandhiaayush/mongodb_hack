@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <meta name="color-scheme" content="light dark" />
-<title>Snoopy</title>
+<title>CJ's Cleaning</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%231d1d1f'/%3E%3Cpath d='M9 16v0M13 12v8M17 9v14M21 13v6' stroke='white' stroke-width='2.6' stroke-linecap='round'/%3E%3C/svg%3E" />
 <script src="config.js"></script>
 <style>
@@ -105,10 +105,10 @@ svg.i{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.7;stro
 .icon-btn:hover{background:var(--fill)}
 
 /* bottom tab bar (phones) */
-.tabbar{display:none;position:fixed;left:0;right:0;bottom:0;z-index:50;grid-template-columns:repeat(6,1fr);
+.tabbar{display:none;position:fixed;left:0;right:0;bottom:0;z-index:50;grid-template-columns:repeat(7,1fr);
   padding:6px max(4px,env(safe-area-inset-left)) calc(6px + env(safe-area-inset-bottom));
   background:var(--bar);-webkit-backdrop-filter:saturate(180%) blur(20px);backdrop-filter:saturate(180%) blur(20px);border-top:.5px solid var(--hairline-2)}
-.tabbar a{display:flex;flex-direction:column;align-items:center;gap:2px;padding:4px 0;font-size:11px;font-weight:500;color:var(--muted);position:relative}
+.tabbar a{display:flex;flex-direction:column;align-items:center;gap:2px;padding:4px 0;font-size:10px;letter-spacing:-.02em;font-weight:500;color:var(--muted);position:relative}
 .tabbar a:hover{text-decoration:none}
 .tabbar a[aria-current="page"]{color:var(--accent-ink)}
 .tabbar svg.i{width:24px;height:24px}
@@ -450,15 +450,39 @@ dialog.wide{width:min(760px,calc(100vw - 32px))}
   .pill .txt{display:none}
   .pill{padding:0 10px}
 }
+/* ── Customers ──────────────────────────────────────────────────────────── */
+.cust{display:grid;grid-template-columns:44px minmax(0,1.3fr) minmax(0,1.6fr) auto auto;gap:14px;align-items:center}
+.cust .avatar{width:40px;height:40px;font-size:14px}
+.cust-n{font-weight:600;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.cust-sub{font-size:13px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cust-pref{font-size:13.5px;color:var(--ink-2);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.cust-stat{text-align:right;font-size:13px;color:var(--muted);white-space:nowrap}
+.cust-stat b{display:block;font-size:15px;color:var(--ink);font-weight:600}
+.chip.vip{background:var(--accent-soft);color:var(--accent-ink)}
+.cd-top{display:flex;gap:14px;align-items:center}
+.cd-top .avatar{width:56px;height:56px;font-size:19px}
+.cd-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.cd-stat{background:var(--band);border-radius:var(--r-sm);padding:10px 12px}
+.cd-stat b{display:block;font-size:20px;font-weight:600;letter-spacing:-.02em}
+.cd-stat span{font-size:12px;color:var(--muted)}
+.cd-h{font-size:13px;font-weight:600;color:var(--muted);margin:18px 0 6px}
+.cd-note{font-size:15px;line-height:1.5;overflow-wrap:anywhere}
+.cd-list{border-radius:var(--r-sm);background:var(--band);overflow:hidden}
+.cd-item{display:flex;justify-content:space-between;gap:12px;padding:10px 12px;font-size:14px;align-items:center;color:var(--ink);width:100%;text-align:left}
+.cd-item+.cd-item{border-top:.5px solid var(--hairline-2)}
+.cd-item small{display:block;color:var(--muted);font-size:12.5px}
+button.cd-item:hover{background:var(--hover)}
+@media (max-width:760px){.cust{grid-template-columns:40px 1fr auto}.cust .cust-pref,.cust .cust-stat.hide-sm{display:none}.cd-grid{grid-template-columns:repeat(3,1fr)}}
+
 </style>
 </head>
 <body>
 <a class="skip" href="#main">Skip to content</a>
 
 <header class="bar">
-  <a class="brand" href="#/line" aria-label="Snoopy, go to the line">
+  <a class="brand" href="#/line" aria-label="CJ's Cleaning, go to the line">
     <span class="brand-mark" aria-hidden="true"><svg class="i" viewBox="0 0 24 24"><path d="M5 12v0M9.5 8v8M14 5v14M18.5 9.5v5"/></svg></span>
-    <span class="brand-name">Snoopy</span>
+    <span class="brand-name">CJ's Cleaning</span>
   </a>
   <nav class="seg" aria-label="Sections" id="nav-top"></nav>
   <div class="bar-end">
@@ -510,7 +534,7 @@ dialog.wide{width:min(760px,calc(100vw - 32px))}
   <section class="view" id="v-learning" aria-labelledby="t-learning">
     <div class="head"><div>
       <h1 class="title" id="t-learning">Learning</h1>
-      <p class="lede">After every call a teacher model grades how it went and edits what Snoopy knows. Edits go live on the next call, and you can undo any of them.</p>
+      <p class="lede">After every call a teacher model grades how it went and edits what the assistant knows. Edits go live on the next call, and you can undo any of them.</p>
     </div></div>
     <div id="learning"></div>
   </section>
@@ -519,7 +543,7 @@ dialog.wide{width:min(760px,calc(100vw - 32px))}
   <section class="view" id="v-knowledge" aria-labelledby="t-knowledge">
     <div class="head"><div>
       <h1 class="title" id="t-knowledge">Knowledge</h1>
-      <p class="lede">Everything Snoopy knows about the business. Each save is a new version that answers the next call. Earlier versions are kept.</p>
+      <p class="lede">Everything the assistant knows about the business. Each save is a new version that answers the next call. Earlier versions are kept.</p>
     </div></div>
     <div id="k-status"></div>
     <div class="kgrid" id="k-main" hidden>
@@ -539,7 +563,7 @@ dialog.wide{width:min(760px,calc(100vw - 32px))}
             </div>
           </div>
           <div class="fgroup">
-            <div class="frow"><label class="lbl" for="k-ctx">What Snoopy knows</label><span class="count" id="k-ctx-n"></span></div>
+            <div class="frow"><label class="lbl" for="k-ctx">What the assistant knows</label><span class="count" id="k-ctx-n"></span></div>
             <textarea class="field" id="k-ctx" spellcheck="true" aria-describedby="k-tips"></textarea>
             <details class="tips" id="k-tips"><summary>What to write here</summary>
               <ul>
@@ -548,7 +572,7 @@ dialog.wide{width:min(760px,calc(100vw - 32px))}
                 <li>Prices and policies: turnaround, payment, damage, unclaimed items</li>
                 <li>Questions callers ask, with the answers you want given</li>
                 <li>Tone: friendly, formal, brief</li>
-                <li>When Snoopy should take a message instead of answering</li>
+                <li>When the assistant should take a message instead of answering</li>
               </ul>
             </details>
           </div>
@@ -570,6 +594,19 @@ dialog.wide{width:min(760px,calc(100vw - 32px))}
     </div>
   </section>
 
+  <!-- Customers -->
+  <section class="view" id="v-customers" aria-labelledby="t-customers">
+    <div class="head">
+      <div><h1 class="title" id="t-customers">Customers</h1>
+      <p class="lede">Everyone who has called, with what the assistant remembers about them. Orders are what is being cleaned; customers are who it belongs to.</p></div>
+      <label class="search" style="width:min(320px,100%)"><span class="sr-only">Search customers</span>
+        <svg class="i" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/></svg>
+        <input class="field" id="cust-q" type="search" placeholder="Search name, phone or notes" autocomplete="off" />
+      </label>
+    </div>
+    <div id="customers"></div>
+  </section>
+
   <!-- Orders -->
   <section class="view" id="v-orders" aria-labelledby="t-orders">
     <div class="head">
@@ -586,7 +623,7 @@ dialog.wide{width:min(760px,calc(100vw - 32px))}
   <section class="view" id="v-messages" aria-labelledby="t-messages">
     <div class="head"><div>
       <h1 class="title" id="t-messages">Messages</h1>
-      <p class="lede">Callers who asked for a person. Snoopy took their name and number.</p>
+      <p class="lede">Callers who asked for a person. The assistant took their name and number.</p>
     </div></div>
     <div id="messages"></div>
   </section>
@@ -620,6 +657,7 @@ dialog.wide{width:min(760px,calc(100vw - 32px))}
   </form>
 </dialog>
 
+<dialog id="cust-dlg" class="wide" aria-labelledby="cust-t"><div class="dlg" id="cust-body"></div></dialog>
 <dialog id="sheet" class="wide" aria-labelledby="sheet-t"><div class="dlg" id="sheet-body"></div></dialog>
 <dialog id="ask" aria-labelledby="ask-t"><div class="dlg">
   <div class="dlg-h"><h2 id="ask-t"></h2></div>
@@ -633,7 +671,7 @@ dialog.wide{width:min(760px,calc(100vw - 32px))}
 <script>
 (function(){
 "use strict";
-const BRAND = window.SNOOPY_BRAND || window.HANGER_BRAND || "Snoopy";
+const BRAND = window.SNOOPY_BRAND || window.HANGER_BRAND || "CJ's Cleaning";
 const POLL_MS = 3000;
 
 /* ── storage (always guarded) ─────────────────────────────────────────── */
@@ -653,7 +691,7 @@ const S = {
   theme: sget("snoopy_theme") || "auto",
   view: "line", sel: null, liveSel: null,
   health: null,
-  calls: null, orders: null, messages: null,
+  calls: null, orders: null, messages: null, customers: null, custSel: null, custQ: "", custEdit: false, custMsg: "",
   grades: null, imps: null,   // null = teacher API not available
   callQ: "", callF: "all", orderQ: "",
   h: {}, seenLive: {},
@@ -716,6 +754,7 @@ const ICON = {
   learning: '<path d="M4 18l5-5 4 3 7-8"/><path d="M15 8h5v5"/>',
   knowledge: '<path d="M5 5.5A2.5 2.5 0 0 1 7.5 3H19v15H7.5A2.5 2.5 0 0 0 5 20.5z"/><path d="M5 20.5A2.5 2.5 0 0 1 7.5 18H19v3H7.5"/>',
   orders: '<path d="M12 8.5a2 2 0 1 1 2-2"/><path d="M12 8.5v1.5L3 17h18l-9-7"/>',
+  customers: '<circle cx="9" cy="8" r="3.2"/><path d="M3 19a6 6 0 0 1 12 0"/><path d="M16 5.5a3 3 0 0 1 0 5.5M18 19a5.5 5.5 0 0 0-2.6-4.7"/>',
   messages: '<path d="M4 5h16v11H10l-5 4v-4H4z"/>',
 };
 const svg = (k, cls) => '<svg class="i' + (cls ? " " + cls : "") + '" viewBox="0 0 24 24" aria-hidden="true">' + ICON[k] + "</svg>";
@@ -800,7 +839,7 @@ const Demo = (function () {
     .map((p) => ({ category: p[0], item: p[1], regularPrice: p[2], expeditedPrice: p[3], notes: p[1] === "Wedding Dress" ? "Call for quote if heavily beaded." : "" }));
   const price = (item, speed) => { const r = prices.find((p) => p.item === item); return { found: true, item, orderType: speed, price: speed === "Expedited" ? r.expeditedPrice : r.regularPrice, category: r.category, notes: r.notes || null }; };
 
-  const BASE = ["Charlie's Cleaners is a friendly neighborhood dry cleaner.",
+  const BASE = ["CJ's Cleaning is a friendly neighborhood dry cleaner.",
     "Services: dry cleaning, laundry and press, alterations and repairs, wedding gown and leather care, and household items like comforters and curtains.",
     "Turnaround: regular service takes 3 days. Expedited service is ready the next day for an extra fee.",
     "Pickup hours: Monday to Saturday, 8am to 6pm. Closed on Sunday.",
@@ -814,12 +853,12 @@ const Demo = (function () {
   const SUN = "Sunday: the shop is closed, but the 24-hour drop box by the front door takes garments any time. Drop-box orders are logged Monday at 8am.";
   const READY = "When a caller asks when an order will be ready, give the expected date from the order lookup as a weekday and date, for example \"Wednesday, October 15th\". Never say you don't have a date if the lookup returned one.";
   const ctx = (extra) => BASE.slice(0, 4).concat(extra.filter((x) => x.at === 4).map((x) => x.s), BASE.slice(4, 8), extra.filter((x) => x.at === 8).map((x) => x.s), BASE.slice(8)).join("\n");
-  const G = "Hey, this is Charlie's Cleaners.";
+  const G = "Hey, this is CJ's Cleaning.";
   const configs = [
-    { version: 1, companyName: "Charlie's Cleaners", greeting: G, context: BASE.join("\n"), author: "system", note: "Default", createdAt: ago(4400) },
-    { version: 2, companyName: "Charlie's Cleaners", greeting: G, context: ctx([{ at: 8, s: ALT }]), author: "manager", note: "Added alterations", createdAt: ago(2900) },
-    { version: 3, companyName: "Charlie's Cleaners", greeting: G, context: ctx([{ at: 4, s: SUN }, { at: 8, s: ALT }]), author: "teacher", note: "Answer Sunday drop-off questions", createdAt: ago(1560) },
-    { version: 4, companyName: "Charlie's Cleaners", greeting: G, context: ctx([{ at: 4, s: SUN }, { at: 8, s: ALT }, { at: 8, s: READY }]), author: "teacher", note: "Give the ready date when asked", createdAt: ago(46) },
+    { version: 1, companyName: "CJ's Cleaning", greeting: G, context: BASE.join("\n"), author: "system", note: "Default", createdAt: ago(4400) },
+    { version: 2, companyName: "CJ's Cleaning", greeting: G, context: ctx([{ at: 8, s: ALT }]), author: "manager", note: "Added alterations", createdAt: ago(2900) },
+    { version: 3, companyName: "CJ's Cleaning", greeting: G, context: ctx([{ at: 4, s: SUN }, { at: 8, s: ALT }]), author: "teacher", note: "Answer Sunday drop-off questions", createdAt: ago(1560) },
+    { version: 4, companyName: "CJ's Cleaning", greeting: G, context: ctx([{ at: 4, s: SUN }, { at: 8, s: ALT }, { at: 8, s: READY }]), author: "teacher", note: "Give the ready date when asked", createdAt: ago(46) },
   ];
   let active = 4;
 
@@ -857,7 +896,7 @@ const Demo = (function () {
     grade("CA3c1d55", "failed", 34, 0.72, [3, 3, 1, 3, 4], "The knowledge had nothing on Sunday drop-off. The caller hung up without an answer."),
     grade("CA4e90b2", "answered", 90, 0.05, [5, 5, 5, 5, 5], "Answered the Sunday question in one sentence from the new knowledge."),
     grade("CA5a3318", "answered", 86, 0.08, [5, 5, 4, 4, 4], "Gave both prices and the beading caveat. Could have asked one question at a time."),
-    grade("CA6d4407", "message_taken", 48, 0.61, [2, 3, 2, 3, 4], "The order lookup returned a ready date, but Snoopy said it had none. The caller also wanted to hold the order, which no tool can do."),
+    grade("CA6d4407", "message_taken", 48, 0.61, [2, 3, 2, 3, 4], "The order lookup returned a ready date, but the assistant said it had none. The caller also wanted to hold the order, which no tool can do."),
     grade("CA7c2f18", "message_taken", 82, 0.12, [5, 4, 5, 5, 4], "Clean message with name and caller ID number confirmed."),
     grade("CA8b9e03", "answered", 63, 0.34, [5, 4, 4, 3, 1], "Read the whole price list aloud. The caller only wanted shirts."),
     grade("CA9a0c7d", "answered", 94, 0.03, [5, 5, 5, 5, 5], "Gave the stage and ready date in one sentence."),
@@ -866,10 +905,19 @@ const Demo = (function () {
   ];
 
   const imps = [
-    { id: "imp-4", type: "prompt", status: "proposed", title: "Ask which item before reading prices", rationale: "Snoopy read all 11 prices when the caller only wanted shirts. Ask what they're bringing in first, then quote that item.", change: "When a caller asks about prices in general, ask what item they have in mind before listing anything.", evidence: [{ callSid: "CA8b9e03", quote: "Uh, okay. Just the shirts really." }], fromVersion: null, toVersion: null, createdAt: ago(126) },
-    { id: "imp-3", type: "tool", status: "proposed", title: "Let callers move a pickup date", rationale: "A caller asked to hold an order until Tuesday. Snoopy can only take a message for that. A tool that updates the expected date would settle it during the call.", change: "reschedule_pickup(orderId, newDate)", evidence: [{ callSid: "CA6d4407", quote: "Can you just hold it till Tuesday then?" }], fromVersion: null, toVersion: null, createdAt: ago(306) },
-    { id: "imp-2", type: "context", status: "applied", title: "Give the ready date when asked", rationale: "The lookup returned an expected date, but Snoopy told the caller it had none. Frustration went up from there.", change: READY, evidence: [{ callSid: "CA6d4407", quote: "But when? I need it for Monday." }], fromVersion: 3, toVersion: 4, createdAt: ago(46) },
-    { id: "imp-1", type: "context", status: "applied", title: "Answer Sunday drop-off questions", rationale: "The knowledge only said the shop is closed Sunday. The caller asked about dropping off and hung up when Snoopy had no answer.", change: SUN, evidence: [{ callSid: "CA3c1d55", quote: "Can I drop stuff off on Sunday, or are you totally closed?" }], fromVersion: 2, toVersion: 3, createdAt: ago(1560) },
+    { id: "imp-4", type: "prompt", status: "proposed", title: "Ask which item before reading prices", rationale: "The assistant read all 11 prices when the caller only wanted shirts. Ask what they're bringing in first, then quote that item.", change: "When a caller asks about prices in general, ask what item they have in mind before listing anything.", evidence: [{ callSid: "CA8b9e03", quote: "Uh, okay. Just the shirts really." }], fromVersion: null, toVersion: null, createdAt: ago(126) },
+    { id: "imp-3", type: "tool", status: "proposed", title: "Let callers move a pickup date", rationale: "A caller asked to hold an order until Tuesday. The assistant can only take a message for that. A tool that updates the expected date would settle it during the call.", change: "reschedule_pickup(orderId, newDate)", evidence: [{ callSid: "CA6d4407", quote: "Can you just hold it till Tuesday then?" }], fromVersion: null, toVersion: null, createdAt: ago(306) },
+    { id: "imp-2", type: "context", status: "applied", title: "Give the ready date when asked", rationale: "The lookup returned an expected date, but the assistant told the caller it had none. Frustration went up from there.", change: READY, evidence: [{ callSid: "CA6d4407", quote: "But when? I need it for Monday." }], fromVersion: 3, toVersion: 4, createdAt: ago(46) },
+    { id: "imp-1", type: "context", status: "applied", title: "Answer Sunday drop-off questions", rationale: "The knowledge only said the shop is closed Sunday. The caller asked about dropping off and hung up when the assistant had no answer.", change: SUN, evidence: [{ callSid: "CA3c1d55", quote: "Can I drop stuff off on Sunday, or are you totally closed?" }], fromVersion: 2, toVersion: 3, createdAt: ago(1560) },
+  ];
+  const customers = [
+    { phone: "+14155550142", name: "Daniel Kim", email: "daniel.kim@example.com", preferences: "Express service on suits when possible. Folded shirts, no hangers.", notes: "Regular since 2024. Usually needs things by Monday.", vip: true, firstSeenAt: ago(60 * 24 * 200), lastCallAt: ago(88), callCount: 9 },
+    { phone: "+14155550118", name: "Angela Torres", preferences: "Remove lint from linings. Text before delivery.", notes: "Brings a wool coat every fall.", firstSeenAt: ago(60 * 24 * 90), lastCallAt: ago(19), callCount: 3 },
+    { phone: "+14155550177", name: "Priya Shah", email: "priya.shah@example.com", preferences: "Handle beaded garments by hand.", notes: "Wedding dress drop-off.", firstSeenAt: ago(60 * 24 * 12), lastCallAt: ago(34), callCount: 2 },
+    { phone: "+14155550161", name: "Marcus Johnson", preferences: "Light starch on shirts.", notes: "Asked for no starch on the blue shirt.", firstSeenAt: ago(60 * 24 * 45), lastCallAt: ago(19), callCount: 4 },
+    { phone: "+14155550199", name: "Lucia Ramirez", preferences: "", notes: "", firstSeenAt: ago(60 * 24 * 3), lastCallAt: ago(60), callCount: 1 },
+    { phone: "+14155550134", name: "Hannah Cole", notes: "Asked about leather jacket cleaning; waiting on a quote.", firstSeenAt: ago(2760), lastCallAt: ago(2759), callCount: 1 },
+    { phone: "+14155550111", name: "Devon", notes: "Silk shirt stain, wants advice before drop-off.", firstSeenAt: ago(204), lastCallAt: ago(204), callCount: 1 },
   ];
   const messages = [
     { name: "Daniel Kim", phone: "+14155550142", message: "Wants to know suit ready date; may need it held till Tuesday.", createdAt: ago(309) },
@@ -937,6 +985,7 @@ const Demo = (function () {
       if (p === "/api/calls") return C.slice().sort((a, b) => b.startedAt.localeCompare(a.startedAt));
       if (p === "/api/orders") return orders;
       if (p === "/api/messages") return messages;
+      if (p === "/api/customers") return customers;
       if (p === "/api/config") return snapCfg();
       if (p === "/api/grades") return grades;
       if (p === "/api/improvements") return imps;
@@ -955,6 +1004,16 @@ const Demo = (function () {
       const f = configs.find((x) => x.version === body.version);
       if (!f) fail(404, "version not found");
       active = f.version; return f;
+    }
+    if (method === "PUT") {
+      const cm = /^\/api\/customers\/([^/]+)$/.exec(p);
+      if (cm) {
+        const c = customers.find((x) => x.phone === decodeURIComponent(cm[1]));
+        if (!c) fail(404, "customer not found");
+        ["name", "email", "preferences", "notes"].forEach((k) => { if (typeof body[k] === "string") { if (body[k].trim()) c[k] = body[k].trim(); else delete c[k]; } });
+        if (typeof body.vip === "boolean") c.vip = body.vip;
+        return c;
+      }
     }
     const m = /^\/api\/improvements\/([^/]+)$/.exec(p);
     if (method === "POST" && m) {
@@ -983,7 +1042,7 @@ const Demo = (function () {
 })();
 
 /* ── navigation ───────────────────────────────────────────────────────── */
-const VIEWS = [["line", "Line"], ["calls", "Calls"], ["learning", "Learning"], ["knowledge", "Knowledge"], ["orders", "Orders"], ["messages", "Messages"]];
+const VIEWS = [["line", "Line"], ["calls", "Calls"], ["learning", "Learning"], ["knowledge", "Knowledge"], ["customers", "Customers"], ["orders", "Orders"], ["messages", "Messages"]];
 $("nav-top").innerHTML = VIEWS.map((v) => '<a href="#/' + v[0] + '" data-v="' + v[0] + '">' + (v[0] === "line" ? '<span class="live-dot" hidden></span>' : "") + v[1] + "</a>").join("");
 $("nav-bottom").innerHTML = VIEWS.map((v) => '<a href="#/' + v[0] + '" data-v="' + v[0] + '">' + svg(v[0]) + (v[0] === "line" ? '<span class="live-dot" hidden></span>' : "") + "<span>" + v[1] + "</span></a>").join("");
 
@@ -1457,7 +1516,7 @@ async function kRevert() {
 function renderKnowledge() {
   const a = activeCfg();
   let msg = "";
-  if (!configured()) msg = setupEmpty("Connect to a backend, or turn on demo data, to edit what Snoopy knows.");
+  if (!configured()) msg = setupEmpty("Connect to a backend, or turn on demo data, to edit what the assistant knows.");
   else if (K.missing) msg = '<div class="card empty"><h3>This backend can’t edit knowledge yet</h3><p>Update and restart the voice server, then come back.</p></div>';
   else if (!a) msg = K.err ? '<div class="banner">Couldn’t load knowledge: ' + esc(K.err) + "</div>" : '<div class="card empty"><p style="margin:0">Loading…</p></div>';
   setH("k-status", msg);
@@ -1512,6 +1571,68 @@ $("k-save").addEventListener("click", kSave);
 $("k-revert").addEventListener("click", kRevert);
 document.addEventListener("keydown", (e) => { if ((e.metaKey || e.ctrlKey) && e.key === "s" && S.view === "knowledge") { e.preventDefault(); kSave(); } });
 window.addEventListener("beforeunload", (e) => { if (kDirty()) { e.preventDefault(); e.returnValue = ""; } });
+
+/* ── Customers ────────────────────────────────────────────────────────── */
+const custInitials = (c) => esc(String(c.name || "?").split(/\s+/).map((w) => w[0]).slice(0, 2).join("").toUpperCase());
+function custMatches(c, q) { return !q || [c.name, c.phone, digits(c.phone), c.email, c.preferences, c.notes].join(" ").toLowerCase().includes(q); }
+function renderCustomers() {
+  if (!configured()) { setH("customers", setupEmpty()); return; }
+  if (S.customers === null) { setH("customers", '<div class="card empty"><h3>Customers aren’t available yet</h3><p>This backend doesn’t serve <span class="mono">/api/customers</span>. Update and restart it, then come back.</p></div>'); return; }
+  const q = S.custQ.trim().toLowerCase();
+  const list = arr(S.customers).filter((c) => custMatches(c, q)).sort((a, b) => (tms(b.lastCallAt) || 0) - (tms(a.lastCallAt) || 0));
+  if (!list.length) { setH("customers", '<div class="card empty"><h3>' + (S.customers.length ? "No customers match" : "No customers yet") + "</h3><p>" + (S.customers.length ? "Try a different name or number." : "A profile is created the first time someone calls.") + "</p></div>"); return; }
+  setH("customers", '<div class="group-t">' + plural(list.length, "customer") + '</div><div class="group">' + list.map((c) =>
+    '<button type="button" class="row cust" data-cust="' + esc(c.phone) + '"><div class="avatar" aria-hidden="true">' + custInitials(c) + "</div>" +
+    '<div style="min-width:0"><div class="cust-n">' + esc(c.name || phone(c.phone)) + (c.vip ? ' <span class="chip vip">VIP</span>' : "") + '</div><div class="cust-sub">' + esc(c.name ? phone(c.phone) : "No name on file") + "</div></div>" +
+    '<div class="cust-pref">' + (esc(c.preferences || c.notes) || '<span class="muted">Nothing noted yet</span>') + "</div>" +
+    '<div class="cust-stat hide-sm"><b>' + esc(plural(c.callCount || 0, "call")) + "</b>" + (c.lastCallAt ? "last " + esc(rel(c.lastCallAt)) : "") + "</div>" + CHEV + "</button>").join("") + "</div>");
+}
+function callGist(c) {
+  const t = arr(c.transcript).filter((m) => m.role === "caller");
+  const first = t.length ? t[0].text : "";
+  return (first.length > 70 ? first.slice(0, 67) + "…" : first) || "No transcript";
+}
+function openCustomer(ph, edit) {
+  const c = arr(S.customers).find((x) => x.phone === ph); if (!c) return;
+  S.custSel = ph; S.custEdit = !!edit;
+  const orders = arr(S.orders).filter((o) => samePhone(o.phone, c.phone));
+  const calls = sortedCalls().filter((x) => samePhone(x.from, c.phone));
+  const msgs = arr(S.messages).filter((m) => samePhone(m.phone, c.phone));
+  const sec = (t, inner) => inner ? '<div class="cd-h">' + t + '</div><div class="cd-list">' + inner + "</div>" : "";
+  const head = (t) => '<div class="dlg-h"><h2 id="cust-t">' + t + '</h2><button class="icon-btn" type="button" data-close aria-label="Close"><svg class="i" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>';
+  if (edit) {
+    const f = (id, label, val, tag, max) => '<div style="margin-bottom:14px"><div class="frow"><label class="lbl" for="' + id + '">' + label + "</label></div>" +
+      (tag === "ta" ? '<textarea class="field" id="' + id + '" maxlength="' + max + '" style="min-height:84px">' + esc(val || "") + "</textarea>" : '<input class="field" id="' + id + '" maxlength="' + max + '" value="' + esc(val || "") + '" autocomplete="off" />') + "</div>";
+    $("cust-body").innerHTML = head("Edit customer") +
+      '<div class="dlg-b"><p class="cust-sub" style="margin-bottom:14px">' + esc(phone(c.phone)) + " · changes apply the next time they call.</p>" +
+      f("ce-name", "Name", c.name, "in", 80) + f("ce-email", "Email", c.email, "in", 120) + f("ce-pref", "Preferences", c.preferences, "ta", 500) + f("ce-notes", "Notes", c.notes, "ta", 1000) +
+      '<label style="display:flex;gap:8px;align-items:center;font-size:15px"><input type="checkbox" id="ce-vip"' + (c.vip ? " checked" : "") + " /> VIP customer</label>" +
+      '<p class="cust-sub" id="ce-msg" role="status" style="margin-top:12px;color:var(--bad)">' + esc(S.custMsg || "") + "</p></div>" +
+      '<div class="dlg-f"><button class="btn" type="button" data-cust-cancel>Cancel</button><button class="btn primary" type="button" data-cust-save>Save</button></div>';
+  } else {
+    $("cust-body").innerHTML = head("Customer") +
+      '<div class="dlg-b"><div class="cd-top"><div class="avatar" aria-hidden="true">' + custInitials(c) + '</div><div><div style="font-size:20px;font-weight:600;letter-spacing:-.02em">' + esc(c.name || "Unknown name") + (c.vip ? ' <span class="chip vip">VIP</span>' : "") + '</div><div class="cust-sub">' + esc(phone(c.phone)) + (c.email ? " · " + esc(c.email) : "") + "</div></div></div>" +
+      '<div class="cd-grid" style="margin-top:16px"><div class="cd-stat"><b>' + (c.callCount || 0) + "</b><span>Calls</span></div><div class=\"cd-stat\"><b>" + orders.length + "</b><span>Orders</span></div><div class=\"cd-stat\"><b>" + (c.firstSeenAt ? esc(rel(c.firstSeenAt)) : "–") + "</b><span>First seen</span></div></div>" +
+      '<div class="cd-h">Preferences</div><div class="cd-note">' + (esc(c.preferences) || '<span class="muted">None noted</span>') + "</div>" +
+      '<div class="cd-h">Notes</div><div class="cd-note">' + (esc(c.notes) || '<span class="muted">None</span>') + "</div>" +
+      sec("Orders", orders.map((o) => '<div class="cd-item"><div><span class="o-id">' + esc(o.orderId) + "</span> " + esc(o.garment) + "<small>" + esc(o.stage) + (stageIx(o.stage) < 5 ? " · due " + esc(day(o.expectedDate)) : "") + '</small></div><div style="font-weight:600">' + esc(money(o.price)) + "</div></div>").join("")) +
+      sec("Calls", calls.slice(0, 6).map((x) => '<button type="button" class="cd-item" data-cust-call="' + esc(x.callSid) + '"><div>' + esc(dateTime(x.startedAt)) + "<small>" + esc(callGist(x)) + "</small></div>" + CHEV + "</button>").join("")) +
+      sec("Messages", msgs.map((m) => '<div class="cd-item"><div>' + esc(m.message) + "<small>" + esc(rel(m.createdAt)) + "</small></div></div>").join("")) + "</div>" +
+      '<div class="dlg-f"><button class="btn primary" type="button" data-cust-edit>Edit</button></div>';
+  }
+  openDlg($("cust-dlg"));
+}
+async function saveCustomer() {
+  const ph = S.custSel, v = (id) => $(id).value;
+  const body = { name: v("ce-name"), email: v("ce-email"), preferences: v("ce-pref"), notes: v("ce-notes"), vip: $("ce-vip").checked };
+  const btn = document.querySelector("[data-cust-save]"); btn.disabled = true;
+  try {
+    const saved = await api("/api/customers/" + encodeURIComponent(ph), { method: "PUT", body });
+    S.customers = arr(S.customers).map((c) => (c.phone === ph ? saved : c));
+    S.custMsg = ""; S.h.customers = null; renderCustomers(); openCustomer(ph, false); toast("Saved");
+  } catch (e) { S.custMsg = errText(e); btn.disabled = false; $("ce-msg").textContent = S.custMsg; }
+}
+$("cust-q").addEventListener("input", (e) => { S.custQ = e.target.value; renderCustomers(); });
 
 /* ── Orders ───────────────────────────────────────────────────────────── */
 const STAGES = ["Received", "Sorting", "Cleaning", "Pressing", "Ready for Pickup"];
@@ -1572,6 +1693,7 @@ function renderAll() {
   else if (S.view === "calls") renderCalls();
   else if (S.view === "learning") renderLearning();
   else if (S.view === "knowledge") renderKnowledge();
+  else if (S.view === "customers") renderCustomers();
   else if (S.view === "orders") renderOrders();
   else if (S.view === "messages") renderMessages();
 }
@@ -1590,11 +1712,12 @@ async function refresh() {
     if (!S.health) throw new Error("bad health");
     const keep = (p, prev) => p.catch(() => prev);
     const teacher = (p) => p.then(arr, (e) => (e && e.status === 404 ? null : undefined));
-    const [calls, orders, messages, cfg, grades, imps] = await Promise.all([
+    const [calls, orders, messages, cfg, grades, imps, custs] = await Promise.all([
       keep(api("/api/calls?limit=50"), S.calls), keep(api("/api/orders"), S.orders), keep(api("/api/messages"), S.messages),
       api("/api/config").catch((e) => { if (e && e.status === 404) K.missing = true; else K.err = errText(e); return undefined; }),
-      teacher(api("/api/grades")), teacher(api("/api/improvements")),
+      teacher(api("/api/grades")), teacher(api("/api/improvements")), teacher(api("/api/customers")),
     ]);
+    if (custs !== undefined) S.customers = custs;
     S.calls = calls ? arr(calls) : S.calls; S.orders = orders ? arr(orders) : S.orders; S.messages = messages ? arr(messages) : S.messages;
     if (cfg && gen === K.gen) { K.missing = false; K.err = ""; const vs = arr(cfg.versions).slice().sort((a, b) => b.version - a.version); S.cfg = { active: cfg.active || vs[0] || null, versions: vs }; }
     if (grades !== undefined) S.grades = grades;
@@ -1608,10 +1731,10 @@ let timer = null;
 function schedule() { clearInterval(timer); timer = setInterval(() => { if (!document.hidden) refresh(); }, POLL_MS); }
 document.addEventListener("visibilitychange", () => { if (!document.hidden) refresh(); });
 function resetData() {
-  S.health = null; S.calls = S.orders = S.messages = S.grades = S.imps = null; S.cfg = null; S.h = {}; S.seenLive = {};
+  S.health = null; S.calls = S.orders = S.messages = S.customers = S.grades = S.imps = null; S.custSel = null; S.cfg = null; S.h = {}; S.seenLive = {};
   K.gen++; K.base = null; K.seen = null; K.msg = null; K.err = ""; K.missing = false; K.dc = {};
   ["k-name", "k-greet", "k-ctx", "k-note"].forEach((i) => { $(i).value = ""; });
-  ["now", "strip", "line-aside", "call-list", "detail", "learning", "orders", "messages", "k-hist"].forEach((i) => { $(i).innerHTML = ""; });
+  ["now", "strip", "line-aside", "call-list", "detail", "learning", "customers", "orders", "messages", "k-hist"].forEach((i) => { $(i).innerHTML = ""; });
   $("now").removeAttribute("data-mode"); $("detail").removeAttribute("data-sid");
 }
 
@@ -1661,6 +1784,11 @@ document.addEventListener("click", (e) => {
   if (t.closest("[data-demo]")) { S.demo = true; sset("snoopy_demo", "1"); resetData(); renderAll(); refresh(); return; }
   if (t.closest("[data-play]")) { Demo.playCall(); refresh(); return; }
   if ((el = t.closest("[data-live]"))) { S.liveSel = el.getAttribute("data-live"); S.h["now-head"] = null; renderLine(); return; }
+  if ((el = t.closest("[data-cust]"))) { openCustomer(el.getAttribute("data-cust")); return; }
+  if (t.closest("[data-cust-edit]")) { S.custMsg = ""; openCustomer(S.custSel, true); return; }
+  if (t.closest("[data-cust-cancel]")) { S.custMsg = ""; openCustomer(S.custSel, false); return; }
+  if (t.closest("[data-cust-save]")) { saveCustomer(); return; }
+  if ((el = t.closest("[data-cust-call]"))) { closeDlg($("cust-dlg")); go("#/calls/" + encodeURIComponent(el.getAttribute("data-cust-call"))); return; }
   if ((el = t.closest("[data-sheet]"))) { openSheet(Number(el.getAttribute("data-sheet"))); return; }
   if ((el = t.closest("[data-mode]"))) { K.mode = el.getAttribute("data-mode"); renderSheet(); return; }
   if ((el = t.closest("[data-edit]"))) { kEditFrom(Number(el.getAttribute("data-edit"))); return; }

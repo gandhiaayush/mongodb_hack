@@ -2,7 +2,7 @@ import "dotenv/config";
 import { MongoClient, type Db } from "mongodb";
 import { toConfig } from "./bridge.js";
 import type {
-  BridgeCall, BridgeConfig, BridgeConfigState, ConfigVersionDoc, GradeDoc, ImprovementDoc,
+  BridgeCall, BridgeConfig, BridgeConfigState, ConfigVersionDoc, GradeDoc, ImprovementDoc, ToolProposalDoc,
 } from "./types.js";
 
 let client: MongoClient | null = null;
@@ -34,6 +34,7 @@ export async function cols() {
     // Owned by the teacher.
     grades: db.collection<GradeDoc>("grades"),
     improvements: db.collection<ImprovementDoc>("improvements"),
+    toolProposals: db.collection<ToolProposalDoc>("tool_proposals"), // read by the bridge/dashboard; the owner enables
   };
 }
 

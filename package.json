@@ -8,6 +8,7 @@
     "live": "tsx scripts/live.ts",
     "doctor": "tsx scripts/doctor.ts",
     "seed": "tsx scripts/seed-demo.ts",
+    "setup": "npm install && npm --prefix teacher install",
     "build": "tsc",
     "start": "node dist/server.js",
     "check": "tsc --noEmit"

@@ -3,6 +3,7 @@ import { Router, Request, Response, NextFunction } from "express";
 import { config } from "../config";
 import { getStore } from "../services/gemini/liveSession";
 import { getActiveCalls } from "../services/calls/recorder";
+import { BUILTIN_TOOL_NAMES } from "../services/gemini/tools";
 import type { CallRecord } from "../services/data/store";
 
 export const apiRouter = Router();
@@ -127,10 +128,106 @@ apiRouter.get(
   })
 );
 
+const customerSchema = z.object({
+  name: z.string().trim().max(80).optional(),
+  email: z.string().trim().max(120).optional(),
+  preferences: z.string().trim().max(500).optional(),
+  notes: z.string().trim().max(1000).optional(),
+  vip: z.boolean().optional(),
+});
+
+// Owner edit. An empty string clears a field.
+apiRouter.put(
+  "/customers/:phone",
+  wrap(async (req, res) => {
+    const parsed = customerSchema.safeParse(req.body ?? {});
+    if (!parsed.success) return badRequest(res, parsed.error);
+    const saved = await (await getStore()).editCustomer(String(req.params.phone), parsed.data);
+    if (!saved) {
+      res.status(404).json({ error: "customer not found" });
+      return;
+    }
+    res.json(saved);
+  })
+);
+
 apiRouter.get(
   "/messages",
   wrap(async (_req, res) => {
     res.json(await (await getStore()).listMessages());
+  })
+);
+
+apiRouter.get(
+  "/tools",
+  wrap(async (_req, res) => {
+    res.json(await (await getStore()).listToolProposals());
+  })
+);
+
+for (const [action, status] of [
+  ["enable", "enabled"],
+  ["disable", "disabled"],
+  ["decline", "declined"],
+] as const) {
+  apiRouter.post(
+    `/tools/:name/${action}`,
+    wrap(async (req, res) => {
+      const name = String(req.params.name);
+      if (status === "enabled" && BUILTIN_TOOL_NAMES.has(name)) {
+        res.status(400).json({ error: `"${name}" collides with a built-in tool` });
+        return;
+      }
+      const updated = await (await getStore()).setToolStatus(name, status);
+      if (!updated) {
+        res.status(404).json({ error: "tool not found" });
+        return;
+      }
+      res.json(updated);
+    })
+  );
+}
+
+apiRouter.get(
+  "/records",
+  wrap(async (req, res) => {
+    const raw = Number.parseInt(String(req.query.limit ?? "100"), 10);
+    const limit = Number.isFinite(raw) ? Math.min(Math.max(raw, 1), 500) : 100;
+    const tool = typeof req.query.tool === "string" && req.query.tool ? req.query.tool : undefined;
+    res.json(await (await getStore()).listCustomRecords({ tool, limit }));
+  })
+);
+
+apiRouter.get(
+  "/grades",
+  wrap(async (_req, res) => {
+    res.json(await (await getStore()).listGrades());
+  })
+);
+
+apiRouter.get(
+  "/improvements",
+  wrap(async (_req, res) => {
+    res.json(await (await getStore()).listImprovements());
+  })
+);
+
+const answerSchema = z.object({ answer: z.string().trim().min(1).max(600) });
+
+apiRouter.post(
+  "/improvements/:id/answer",
+  wrap(async (req, res) => {
+    const parsed = answerSchema.safeParse(req.body ?? {});
+    if (!parsed.success) return badRequest(res, parsed.error);
+    const id = String(req.params.id);
+    const store = await getStore();
+    const result = await store.answerImprovement(id, parsed.data.answer);
+    if (!result.ok) {
+      const missing = /not found/i.test(result.error);
+      res.status(missing || result.error === "needs MongoDB" ? 404 : 400).json({ error: result.error });
+      return;
+    }
+    res.json(result);
   })
 );
 

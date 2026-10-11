@@ -78,12 +78,18 @@ export class CallRecorder {
     }, wait);
   }
 
-  private async flush(): Promise<void> {
+  // Saves are chained so they land in order: a periodic save still in flight when the call ends can
+  // no longer overwrite the final "completed" save (which left calls stuck as "active" and never graded)
+  private queue: Promise<void> = Promise.resolve();
+
+  private flush(): Promise<void> {
     this.lastSave = Date.now();
-    try {
-      await this.store.saveCall(structuredClone(this.record));
-    } catch (err) {
-      console.error(`[${this.record.callSid}] Failed to save call:`, err);
-    }
+    const snapshot = structuredClone(this.record);
+    this.queue = this.queue
+      .then(() => this.store.saveCall(snapshot))
+      .catch((err) => {
+        console.error(`[${this.record.callSid}] Failed to save call:`, err);
+      });
+    return this.queue;
   }
 }

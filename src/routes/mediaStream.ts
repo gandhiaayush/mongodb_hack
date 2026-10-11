@@ -59,6 +59,7 @@ export function handleMediaStream(ws: WebSocket): void {
 
         const handle = await openGeminiSession({
           callerPhone,
+          callSid: callSid ?? undefined,
           recorder: recorder ?? undefined,
           onAudio: (base64Mulaw: string) => {
             if (ws.readyState === WebSocket.OPEN && streamSid) {

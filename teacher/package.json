@@ -12,6 +12,7 @@
     "answer": "tsx scripts/cli.ts answer",
     "rollback": "tsx scripts/cli.ts rollback",
     "trend": "tsx scripts/cli.ts trend",
+    "tools": "tsx scripts/cli.ts tools",
     "context": "tsx scripts/cli.ts context"
   },
   "dependencies": {

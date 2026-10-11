@@ -3,6 +3,8 @@
 //     src/services/data/store.ts). Do not change them here without telling the partner.
 //  2. Everything else = the teacher's own view. src/services/mongo/bridge.ts converts between the two.
 
+import type { Recipe } from "../teacher/recipe.js";
+
 /** `calls` collection, written by the bridge's CallRecorder. Keyed by callSid. */
 export interface BridgeCall {
   callSid: string;
@@ -117,6 +119,7 @@ export interface ImprovementDoc {
     text?: string;
     question?: string; // context: question for the owner
     answer?: string; // filled in when the owner replies
+    tool_name?: string; // tool improvements from a tool_proposal: the proposed tool's name (= _id in tool_proposals)
   };
   evidence_turns: number[];
   reason: string;
@@ -125,3 +128,29 @@ export interface ImprovementDoc {
   applied_in_config_id?: string;
   created_at: Date;
 }
+
+/** `tool_proposals` collection, `_id` = tool name. Shared contract with the bridge and dashboard.
+ *  The teacher only ever inserts "proposed" documents and bumps requestCount; the owner changes `status`. */
+export interface ToolProposal {
+  name: string; // snake_case, 3-40 chars
+  description: string; // when the agent should call it
+  params: { name: string; type: "string" | "number" | "boolean"; description: string; required: boolean }[]; // max 6
+  write: boolean; // true = saves a record the owner can see later, false = looks up that caller's earlier records
+  why: string;
+  mockup: {
+    sampleDialogue: { role: "caller" | "agent" | "tool"; text: string }[]; // 4 to 8 turns
+    exampleArgs: Record<string, unknown>;
+    exampleResult: Record<string, unknown>;
+  };
+  recipe?: Recipe; // optional: how the tool really behaves (shared safe recipe language, see teacher/recipe.ts)
+  recipeVerified?: boolean; // true when the teacher ran the recipe on exampleArgs against a mock io and it passed
+  status: "proposed" | "enabled" | "disabled" | "declined";
+  requestCount: number;
+  sourceCallSids: string[];
+  evidence: { turn: number; quote: string }[];
+  createdAt: string;
+  updatedAt: string;
+  enabledAt?: string;
+  enabledBy?: "teacher" | "owner"; // who enabled it: the teacher (auto, low-grade call) or the owner (dashboard)
+}
+export type ToolProposalDoc = ToolProposal & { _id: string };

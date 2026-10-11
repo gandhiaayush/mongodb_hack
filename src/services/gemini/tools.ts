@@ -8,7 +8,9 @@ import {
   type CustomerPatch,
   type DataStore,
   type Speed,
+  type ToolProposal,
 } from "../data/store";
+import { CALLABLE_TOOLS, runRecipe, validateRecipe, type CallableTool, type RecipeIO } from "../tools/recipe";
 
 const CONFIRM_ERROR = "Read the details back to the caller and get a yes first.";
 
@@ -173,6 +175,152 @@ export const TOOLS: FunctionDeclaration[] = [
 ];
 
 type Args = Record<string, unknown>;
+
+export const BUILTIN_TOOL_NAMES: ReadonlySet<string> = new Set([
+  "get_order",
+  "lookup_price",
+  "list_prices",
+  "add_order_note",
+  "take_message",
+  "update_customer_profile",
+  "create_order",
+  "set_order_type",
+  "cancel_order",
+  "schedule_appointment",
+  "quote_turnaround",
+]);
+
+const SNAKE = /^[a-z][a-z0-9_]*$/;
+const GEMINI_TYPES = { string: Type.STRING, number: Type.NUMBER, boolean: Type.BOOLEAN } as const;
+const MAX_STR = 500;
+const MAX_CUSTOM_WRITES_PER_CALL = 20;
+
+export function isValidCustomSpec(spec: ToolProposal): boolean {
+  if (!spec || typeof spec.name !== "string") return false;
+  if (spec.name.length < 3 || spec.name.length > 40 || !SNAKE.test(spec.name)) return false;
+  if (BUILTIN_TOOL_NAMES.has(spec.name)) return false;
+  if (!Array.isArray(spec.params) || spec.params.length > 6) return false;
+  return spec.params.every((p) => p && SNAKE.test(p.name ?? "") && p.type in GEMINI_TYPES);
+}
+
+export function buildCustomToolDeclarations(enabled: ToolProposal[]): FunctionDeclaration[] {
+  const out: FunctionDeclaration[] = [];
+  for (const spec of enabled) {
+    if (!isValidCustomSpec(spec)) {
+      console.warn(`[tools] skipping custom tool "${spec?.name}" (invalid or collides with a built-in)`);
+      continue;
+    }
+    if (spec.recipe) {
+      const bad = validateRecipe(spec.recipe, spec.params.map((p) => p.name), spec.write);
+      if (bad) {
+        console.warn(`[tools] skipping custom tool "${spec.name}" (invalid recipe: ${bad})`);
+        continue;
+      }
+    }
+    const properties: Record<string, { type: Type; description: string }> = {};
+    for (const p of spec.params) properties[p.name] = { type: GEMINI_TYPES[p.type], description: p.description || p.name };
+    const required = spec.params.filter((p) => p.required).map((p) => p.name);
+    out.push({
+      name: spec.name,
+      description: spec.description,
+      parameters: { type: Type.OBJECT, properties, ...(required.length ? { required } : {}) },
+    });
+  }
+  return out;
+}
+
+const customWrites = new Map<string, number>();
+
+export async function executeCustomTool(
+  spec: ToolProposal,
+  args: Args,
+  store: DataStore,
+  ctx: { callerPhone?: string; callSid?: string } = {}
+): Promise<Record<string, unknown>> {
+  try {
+    if (!isValidCustomSpec(spec)) return { error: "This tool is not available." };
+    const clean: Record<string, unknown> = {};
+    for (const p of spec.params) {
+      const raw = args?.[p.name];
+      if (raw === undefined || raw === null || (typeof raw === "string" && !raw.trim())) {
+        if (p.required) return { error: `Missing required argument: ${p.name}.` };
+        continue;
+      }
+      if (p.type === "string") {
+        if (typeof raw !== "string" && typeof raw !== "number" && typeof raw !== "boolean") {
+          return { error: `Argument ${p.name} must be text.` };
+        }
+        clean[p.name] = String(raw).trim().slice(0, MAX_STR);
+      } else if (p.type === "number") {
+        const n = typeof raw === "number" ? raw : Number(String(raw).trim());
+        if (!Number.isFinite(n)) return { error: `Argument ${p.name} must be a number.` };
+        clean[p.name] = n;
+      } else {
+        if (typeof raw === "boolean") clean[p.name] = raw;
+        else if (raw === "true" || raw === "false") clean[p.name] = raw === "true";
+        else return { error: `Argument ${p.name} must be true or false.` };
+      }
+    }
+
+    const takeWriteSlot = (): string | null => {
+      const key = ctx.callSid ?? "";
+      if (!key) return null;
+      const used = customWrites.get(key) ?? 0;
+      if (used >= MAX_CUSTOM_WRITES_PER_CALL) return "Too many records saved on this call. Take a message for staff instead.";
+      customWrites.set(key, used + 1);
+      return null;
+    };
+
+    if (spec.recipe) {
+      // Never trust stored data: re-check the recipe every time it runs
+      const bad = validateRecipe(spec.recipe, spec.params.map((p) => p.name), spec.write);
+      if (bad) return { error: `This tool is not available (invalid recipe: ${bad}).` };
+      const io: RecipeIO = {
+        async save(fields) {
+          const full = takeWriteSlot();
+          if (full) throw new Error(full);
+          const rec = await store.saveCustomRecord({ tool: spec.name, phone: ctx.callerPhone, callSid: ctx.callSid, fields });
+          return { recordId: rec.id };
+        },
+        async lookup(query) {
+          const all = await store.listCustomRecords({ tool: spec.name, phone: ctx.callerPhone, limit: 100 });
+          const q = query ? query.toLowerCase() : "";
+          const matched = q ? all.filter((r) => JSON.stringify(r.fields).toLowerCase().includes(q)) : all;
+          return matched.map((r) => ({ ...r.fields }));
+        },
+        async call(tool: CallableTool, callArgs) {
+          if (!CALLABLE_TOOLS.includes(tool)) return { error: `Tool ${String(tool)} cannot be called from a recipe.` };
+          // Recipe argument names must be snake_case but the built-ins use camelCase (orderId): convert
+          const mapped: Record<string, unknown> = {};
+          for (const [k, v] of Object.entries(callArgs)) mapped[k.replace(/_([a-z0-9])/g, (_, c: string) => c.toUpperCase())] = v;
+          return executeTool(tool, mapped, store, { callerPhone: ctx.callerPhone });
+        },
+      };
+      const out = await runRecipe(spec.recipe, clean, io);
+      return out.ok ? out.result : { error: out.error };
+    }
+
+    if (spec.write) {
+      const full = takeWriteSlot();
+      if (full) return { error: full };
+      const rec = await store.saveCustomRecord({
+        tool: spec.name,
+        phone: ctx.callerPhone,
+        callSid: ctx.callSid,
+        fields: clean,
+      });
+      return { saved: true, recordId: rec.id, ...clean };
+    }
+
+    const all = await store.listCustomRecords({ tool: spec.name, phone: ctx.callerPhone, limit: 100 });
+    const q = typeof clean.query === "string" ? clean.query.toLowerCase() : "";
+    const matched = q ? all.filter((r) => JSON.stringify(r.fields).toLowerCase().includes(q)) : all;
+    const records = matched.slice(0, 5).map((r) => ({ recordId: r.id, createdAt: r.createdAt, ...r.fields }));
+    return { records, count: matched.length };
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : String(err) };
+  }
+}
 
 function str(args: Args, key: string): string {
   const v = args[key];

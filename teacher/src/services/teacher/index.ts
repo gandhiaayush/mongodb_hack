@@ -1,8 +1,10 @@
 import { fromConfig, renderContext, toCall, versionOf } from "../mongo/bridge.js";
 import { cols, getActiveConfig, getConfig } from "../mongo/client.js";
-import type { BridgeCall, ConfigVersionDoc, GradeDoc, ImprovementDoc } from "../mongo/types.js";
+import type { BridgeCall, ConfigVersionDoc, GradeDoc, ImprovementDoc, ToolProposal, ToolProposalDoc } from "../mongo/types.js";
 import { geminiJudge, teacherModel, type Judge } from "./judge.js";
-import { buildPlan, LIMITS, regression } from "./plan.js";
+import {
+  buildPlan, decideToolStatus, describeRecipe, LIMITS, mergeToolProposal, ownerAnswerLine, regression, verifyToolRecipe, type ToolDecision,
+} from "./plan.js";
 
 export interface TeachResult {
   grade: GradeDoc;
@@ -10,6 +12,8 @@ export interface TeachResult {
   newConfig: ConfigVersionDoc | null;
   alreadyGraded: boolean;
   rolledBack: { from: string; to: string; reason: string } | null; // automatic rollback, if one fired
+  // Accepted tool proposal (as stored) and what happened to it. null when the call showed no capability gap or it was rejected.
+  toolProposal: { proposal: ToolProposal; action: ToolDecision["action"]; status: ToolProposal["status"]; promoted: boolean; threshold: number } | null;
 }
 
 /**
@@ -47,14 +51,19 @@ export async function teach(callId: string, judge: Judge = geminiJudge): Promise
   const existing = await c.grades.findOne({ _id: callId });
   if (existing) {
     const improvements = await c.improvements.find({ source_call_ids: callId }).toArray();
-    return { grade: existing, improvements, newConfig: null, alreadyGraded: true, rolledBack: null };
+    return { grade: existing, improvements, newConfig: null, alreadyGraded: true, rolledBack: null, toolProposal: null };
   }
 
   // Changes are always built on the ACTIVE config, so two calls never overwrite each other's rules.
   const cfg = await getActiveConfig();
   const out = await judge(call, cfg);
   const now = new Date();
-  const { grade } = buildPlan(out, call, cfg, teacherModel(), now);
+  // Owner questions already open or answered (a repeat is rejected), and the async self-check of a proposed recipe.
+  const existingQuestions = (await c.improvements.find({ type: "context", status: { $in: ["proposed", "applied"] } }).toArray())
+    .map((i) => i.payload.question ?? "").filter(Boolean);
+  const recipeCheck = out.tool_proposal ? await verifyToolRecipe(out.tool_proposal) : undefined;
+  const extra = { existingQuestions, recipeCheck };
+  const { grade } = buildPlan(out, call, cfg, teacherModel(), now, undefined, extra);
   await c.grades.insertOne(grade);
 
   // If the active version has regressed, go back to its parent first and build this call's
@@ -63,13 +72,62 @@ export async function teach(callId: string, judge: Judge = geminiJudge): Promise
   const base = rolledBack?.parent ?? cfg;
 
   const plan = await insertVersion(
-    (version) => buildPlan(out, call, base, teacherModel(), now, version), (p) => p.nextConfig);
+    (version) => buildPlan(out, call, base, teacherModel(), now, version, extra), (p) => p.nextConfig);
+  const toolProposal = plan.toolProposal ? await saveToolProposal(plan.toolProposal, grade.overall, plan.improvements) : null;
   if (plan.improvements.length) await c.improvements.insertMany(plan.improvements);
   if (plan.nextConfig) await setActive(plan.nextConfig.version);
   return {
-    grade, improvements: plan.improvements, newConfig: plan.nextConfig, alreadyGraded: false,
+    grade, improvements: plan.improvements, newConfig: plan.nextConfig, alreadyGraded: false, toolProposal,
     rolledBack: rolledBack && { from: rolledBack.from, to: rolledBack.to, reason: rolledBack.reason },
   };
+}
+
+/**
+ * Writes an accepted tool proposal to `tool_proposals` and records the outcome on its `improvements` document
+ * (mutated in place before it is inserted). The owner's decision wins: "disabled" and "declined" are never touched.
+ */
+async function saveToolProposal(incoming: ToolProposal, overall: number, improvements: ImprovementDoc[]): Promise<TeachResult["toolProposal"]> {
+  const c = await cols();
+  const imp = improvements.find((i) => i.type === "tool" && i.payload.tool_name === incoming.name && i.status === "proposed");
+  const now = new Date();
+  let existing = await c.toolProposals.findOne({ _id: incoming.name });
+  let d = decideToolStatus(overall, existing?.status ?? null, process.env);
+  if (d.action === "create") {
+    const doc: ToolProposalDoc = { ...incoming, _id: incoming.name, status: d.status };
+    if (d.promote) { doc.enabledAt = now.toISOString(); doc.enabledBy = "teacher"; }
+    try { await c.toolProposals.insertOne(doc); existing = doc; }
+    catch (e) { // another call created it at the same moment: treat as a repeat request
+      if ((e as { code?: number }).code !== 11000) throw e;
+      existing = await c.toolProposals.findOne({ _id: incoming.name });
+      d = decideToolStatus(overall, existing?.status ?? null, process.env);
+    }
+  }
+  if (d.action !== "create" && existing) {
+    if (d.action === "bump") {
+      const m = mergeToolProposal(existing, incoming, now);
+      const set: Partial<ToolProposalDoc> = { requestCount: m.requestCount, sourceCallSids: m.sourceCallSids, evidence: m.evidence, updatedAt: m.updatedAt };
+      if (d.promote) { set.status = "enabled"; set.enabledAt = now.toISOString(); set.enabledBy = "teacher"; }
+      await c.toolProposals.updateOne({ _id: incoming.name, status: existing.status }, { $set: set });
+    }
+  }
+  if (imp) {
+    if (d.action === "skip") {
+      imp.status = "rejected";
+      imp.rejected_reason = `tool proposal: the owner already ${existing?.status ?? "declined"} ${incoming.name}; not reopened`;
+    } else if (d.status === "enabled" && (d.promote || d.action === "bump")) {
+      imp.reason = d.promote
+        ? `${imp.reason} (Tool auto-enabled by the teacher because the call scored ${overall} (< ${d.threshold}).)`
+        : `${imp.reason} (Repeat request for the already enabled tool ${incoming.name}.)`;
+    } else {
+      imp.reason = `${imp.reason} (Waiting for the owner to enable it; the call scored ${overall}, threshold ${d.threshold}.)`;
+    }
+  }
+  return d.action === "skip" ? null : { proposal: incoming, action: d.action, status: d.status, promoted: d.promote, threshold: d.threshold };
+}
+
+/** For `npm run tools`: every proposal, most requested first. */
+export async function listToolProposals() {
+  return (await cols()).toolProposals.find().sort({ requestCount: -1, updatedAt: -1 }).toArray();
 }
 
 async function setActive(version: number) {
@@ -116,7 +174,7 @@ export async function answerOwnerQuestion(improvementId: string, answer: string)
   const question = imp.payload.question ?? "";
   const next = await insertVersion<ConfigVersionDoc>((version) => ({
     ...cfg, _id: `v${version}`, version,
-    context: `${cfg.context}\n${question} ${answer.trim()}`.trim(),
+    context: `${cfg.context}\n${ownerAnswerLine(question, answer)}`.trim(),
     parent_id: cfg._id, created_by: "manager", source_call_id: imp.source_call_ids[0] ?? null,
     note: `Owner answered: ${question}`.slice(0, 300), created_at: new Date(),
   }), (n) => n);
@@ -179,8 +237,20 @@ export function printResult(r: TeachResult) {
   if (r.rolledBack) console.log(`  ROLLED BACK ${r.rolledBack.from} -> ${r.rolledBack.to} (${r.rolledBack.reason})`);
   for (const i of g.issues) console.log(`  issue [turn ${i.turn}] ${i.type}: "${i.quote}"`);
   for (const m of r.improvements) {
-    const what = m.payload.question ?? `${m.payload.op ?? ""} ${m.payload.rule_id ?? ""} ${m.payload.text ?? ""}`;
+    const what = m.type === "tool" && m.payload.tool_name ? `${m.payload.tool_name}: ${m.payload.text}` : m.payload.question ?? `${m.payload.op ?? ""} ${m.payload.rule_id ?? ""} ${m.payload.text ?? ""}`;
     console.log(`  ${m.status.toUpperCase()} ${m.type}: ${what.trim()}${m.rejected_reason ? ` (${m.rejected_reason})` : ""}`);
+  }
+  if (r.toolProposal) {
+    const t = r.toolProposal, p = t.proposal;
+    const head = t.status === "enabled"
+      ? (t.promoted ? `TOOL CREATED (auto-enabled, grade ${g.overall} < ${t.threshold})` : "TOOL REQUESTED AGAIN (already enabled)")
+      : `TOOL PROPOSED (waiting for owner, grade ${g.overall})`;
+    console.log(`  ${head}: ${p.name} [${p.write ? "write" : "read"}] ${p.description}`);
+    console.log(`    recipe: ${p.recipe ? `yes, verified: ${p.recipeVerified ? "yes" : "no"}` : "no (plain save/look-up tool)"}`);
+    if (p.recipe) for (const line of describeRecipe(p.recipe)) console.log(`      - ${line}`);
+    console.log(`    params: ${p.params.map((q) => `${q.name}:${q.type}${q.required ? "*" : ""}`).join(", ") || "(none)"}`);
+    for (const d of p.mockup.sampleDialogue) console.log(`    ${d.role.padEnd(6)} ${d.text}`);
+    console.log(`    example args ${JSON.stringify(p.mockup.exampleArgs)} -> ${JSON.stringify(p.mockup.exampleResult)}`);
   }
   if (r.newConfig) console.log(`  -> new active config: ${r.newConfig._id} (${r.newConfig.rules.length} rules)`);
 }

@@ -17,7 +17,13 @@ MONGODB_URI=mongodb+srv://USER:PASSWORD@YOUR-SANDBOX-CLUSTER.mongodb.net
 MONGODB_DB=snoopy
 GEMINI_API_KEY=
 GEMINI_TEACHER_MODEL=gemini-3.8-flash
+# Google Calendar for the voice agent's booking tools (optional)
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+GOOGLE_REFRESH_TOKEN=
+GOOGLE_CALENDAR_ID=
 ```
+The free Gemini tier allows 20 requests per day per model, and each graded call is one request.
 
 Other commands: `npm run teach <callId>`, `npm run answer <improvementId> <answer>`,
 `npm run rollback`, `npm run trend`, `npm run tools` (list tool proposals), `npm run context`, `npm run watch`.
@@ -33,6 +39,20 @@ It grades every finished call that has no grade yet and writes new config versio
 The teacher keeps its rules in a `LEARNED RULES` block at the end of the config's context text.
 
 `npm run demo` and `npm run seed` only ever touch the separate database `snoopy_demo`.
+
+## Calendar tools for the voice agent
+`src/services/integrations/gateway.ts` gives the voice agent two tools, `check_availability` and `book_appointment`,
+behind a permission that only the teacher and the owner can change: `disabled`, `requires_approval` or `auto`.
+The teacher never calls the calendar. It lowers a permission after a bad booking and can raise it one level after
+3 calls with clean use.
+```
+npm run calendar:check                       # live test: reads free/busy, creates a test event
+npm run calendar:setup "Maya" <calendar id>  # add a staff member
+npm run permission book_appointment requires_approval
+npm run appointments                         # list bookings
+npm run approve <appointment id>             # owner approves a queued booking (creates the event)
+npm run reject <appointment id>
+```
 
 ## Safety limits (src/services/teacher/plan.ts)
 - The rubric lives in code; the teacher cannot edit it. Overall score is computed in code.

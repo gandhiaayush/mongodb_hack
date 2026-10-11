@@ -13,10 +13,17 @@
     "rollback": "tsx scripts/cli.ts rollback",
     "trend": "tsx scripts/cli.ts trend",
     "tools": "tsx scripts/cli.ts tools",
-    "context": "tsx scripts/cli.ts context"
+    "context": "tsx scripts/cli.ts context",
+    "appointments": "tsx scripts/cli.ts appointments",
+    "approve": "tsx scripts/cli.ts approve",
+    "reject": "tsx scripts/cli.ts reject",
+    "permission": "tsx scripts/cli.ts permission",
+    "calendar:setup": "tsx scripts/cli.ts calendar-setup",
+    "calendar:check": "tsx scripts/calendar-check.ts"
   },
   "dependencies": {
     "@google/genai": "latest",
+    "@googleapis/calendar": "^20.1.0",
     "dotenv": "latest",
     "mongodb": "latest",
     "zod": "latest"

@@ -2,11 +2,14 @@
 import assert from "node:assert/strict";
 import { JudgeOutput } from "../src/services/teacher/judge.js";
 import {
-  buildPlan, decideToolStatus, describeRecipe, mergeToolProposal, overallScore, ownerAnswerLine, regression, selfCheckRecipe,
+  buildPlan, decideToolStatus, describeRecipe, mergeToolProposal, NO_STATS, overallScore, ownerAnswerLine, regression, selfCheckRecipe,
   validateToolProposal, verifyToolRecipe,
 } from "../src/services/teacher/plan.js";
-import { deriveOutcome, fromConfig, splitContext, toCall, toConfig } from "../src/services/mongo/bridge.js";
-import { demoCalls, demoConfig } from "../fixtures/seed.js";
+import { deriveOutcome, fromConfig, NO_TOOLS, splitContext, toCall, toConfig } from "../src/services/mongo/bridge.js";
+import { checkSlot, freeSlots, localToUtc, nextOpenDayAt, overlaps, utcToLocal, type Slot, type SlotCheck } from "../src/services/integrations/time.js";
+import { demoCalls, demoConfig, demoWorkspace } from "../fixtures/seed.js";
+
+const reasonOf = (c: SlotCheck) => (c.ok ? "ok" : c.reason);
 
 // Bridge documents -> teacher's view.
 const configV1 = toConfig(demoConfig);
@@ -83,6 +86,80 @@ assert.equal(afterRollback.nextConfig!._id, "v3");
 assert.equal(afterRollback.nextConfig!.version, 3);
 assert.equal(afterRollback.nextConfig!.parent_id, configV1._id);
 assert.equal(afterRollback.improvements[0]!.applied_in_config_id, "v3");
+
+// --- Calendar: tool permissions in the config text ---
+assert.deepEqual(configV1.tools, { check_availability: "auto", book_appointment: "requires_approval" });
+assert.ok(!configV1.context.includes("BOOKING TOOLS"), "tools block is split out of the company text");
+assert.deepEqual(splitContext("Just company text.").tools, NO_TOOLS, "no block means every tool is disabled");
+assert.ok(!fromConfig({ ...configV1, tools: NO_TOOLS }).context.includes("BOOKING TOOLS"), "block left out when all disabled");
+
+// --- Calendar: time rules (pure) ---
+const tz = "America/Los_Angeles", hours = demoWorkspace.business_hours;
+const at = new Date("2026-10-12T19:00:00Z"); // Monday 12:00 in Los Angeles
+assert.equal(localToUtc("2026-10-13T14:00", tz).toISOString(), "2026-10-13T21:00:00.000Z"); // PDT
+assert.equal(localToUtc("2026-12-01T14:00", tz).toISOString(), "2026-12-01T22:00:00.000Z"); // PST
+assert.equal(utcToLocal(new Date("2026-10-13T21:00:00Z"), tz), "2026-10-13T14:00");
+assert.equal(checkSlot("2026-10-13T14:00", 60, tz, hours, at).ok, true);
+assert.equal(checkSlot("2026-10-13T21:00:00Z", 60, tz, hours, at).ok, true, "ISO with Z is read as the same local time");
+assert.deepEqual(reasonOf(checkSlot("2026-10-10T14:00", 60, tz, hours, at)), "in_the_past");
+assert.deepEqual(reasonOf(checkSlot("2026-10-12T14:00", 60, tz, hours, at)), "outside_business_hours"); // closed Monday
+assert.deepEqual(reasonOf(checkSlot("2026-10-13T17:30", 60, tz, hours, at)), "outside_business_hours"); // ends after close
+assert.deepEqual(reasonOf(checkSlot("next tuesday", 60, tz, hours, at)), "bad_time");
+const day = checkSlot("2026-10-13T14:00", 60, tz, hours, at) as Slot;
+const busy = [{ start: "2026-10-13T14:00", end: "2026-10-13T15:30" }, { start: "2026-10-13T16:00", end: "2026-10-13T17:00" }];
+assert.equal(overlaps(busy, day.start, day.end), true);
+assert.deepEqual(freeSlots(busy, day, 60, day.start), ["2026-10-13T17:00"], "only whole free hours after the request");
+assert.deepEqual(freeSlots(busy, day, 30, day.start), ["2026-10-13T15:30", "2026-10-13T17:00", "2026-10-13T17:30"]);
+assert.equal(nextOpenDayAt("14:00", tz, hours, at), "2026-10-13T14:00");
+assert.equal(deriveOutcome([{ name: "book_appointment", result: { ok: true, booked: true } }]), "booked");
+assert.equal(deriveOutcome([{ name: "book_appointment", result: { ok: true, queued: true } }]), "answered");
+assert.equal(deriveOutcome([{ name: "book_appointment", result: { ok: false, reason: "slot_taken" } }]), "answered", "a refusal is not a tool error");
+
+// --- Calendar: the teacher changes permissions, under rules ---
+const bookingCall = (result: Record<string, unknown>) => toCall({
+  ...demoCalls[0]!, callSid: "booking_call", toolCalls: [{ name: "book_appointment", args: {}, result, ts: "" }] });
+const permission = (to: string, tool_use: number, result: Record<string, unknown>, cfg = configV1, stats = NO_STATS) => buildPlan(
+  JudgeOutput.parse({ ...out, scores: { ...out.scores, tool_use },
+    improvements: [{ type: "tool", tool: "book_appointment", permission: to, evidence_turns: [2], reason: "x" }] }),
+  bookingCall(result), cfg, "mock", new Date(), 2, { toolStats: stats });
+const queued = { ok: true, queued: true };
+
+// Promotion blocked without enough clean calls: stays proposed, no new version.
+let pp = permission("auto", 9, queued);
+assert.deepEqual([pp.improvements[0]!.status, pp.nextConfig], ["proposed", null]);
+assert.match(pp.improvements[0]!.held_reason!, /needs 3 graded calls .* has 1/);
+pp = permission("auto", 9, queued, configV1, { ...NO_STATS, book_appointment: 1 });
+assert.equal(pp.improvements[0]!.status, "proposed", "2 clean calls is still not enough");
+// Promotion allowed with them (2 earlier clean calls + this one).
+pp = permission("auto", 9, queued, configV1, { ...NO_STATS, book_appointment: 2 });
+assert.equal(pp.improvements[0]!.status, "applied");
+assert.deepEqual(pp.improvements[0]!.payload, { op: undefined, rule_id: undefined, rule_kind: undefined, text: undefined,
+  question: undefined, tool: "book_appointment", permission: "auto", from_permission: "requires_approval" });
+assert.equal(pp.nextConfig!.tools.book_appointment, "auto");
+assert.equal(configV1.tools.book_appointment, "requires_approval", "old version untouched");
+assert.match(fromConfig(pp.nextConfig!).context, /- book_appointment: auto/);
+assert.match(pp.nextConfig!.note!, /1 tool permission change/);
+// This call does not count as clean if the tool errored or tool use was graded low.
+assert.equal(permission("auto", 9, { ok: false, error: "boom" }, configV1, { ...NO_STATS, book_appointment: 2 }).improvements[0]!.status, "proposed");
+assert.equal(permission("auto", 5, queued, configV1, { ...NO_STATS, book_appointment: 2 }).improvements[0]!.status, "proposed");
+// Promotion is one level at a time, whatever the record.
+const disabledCfg = { ...configV1, tools: { ...configV1.tools, book_appointment: "disabled" as const } };
+pp = permission("auto", 9, queued, disabledCfg, { ...NO_STATS, book_appointment: 50 });
+assert.deepEqual([pp.improvements[0]!.status, pp.improvements[0]!.held_reason], ["proposed", "a permission can only go up one level at a time"]);
+// Demotion after a tool error: applied at once, even two levels down, with no clean-call record needed.
+const autoCfg = pp = permission("auto", 9, queued, configV1, { ...NO_STATS, book_appointment: 2 });
+pp = permission("disabled", 2, { ok: false, error: "event insert failed" }, autoCfg.nextConfig!);
+assert.equal(pp.improvements[0]!.status, "applied");
+assert.equal(pp.nextConfig!.tools.book_appointment, "disabled");
+assert.deepEqual(pp.grade.tools_failed, ["book_appointment"]);
+// Evidence is still required, and unknown values are rejected, not applied.
+pp = buildPlan(JudgeOutput.parse({ ...out, improvements: [
+  { type: "tool", tool: "book_appointment", permission: "disabled", evidence_turns: [], reason: "x" },
+  { type: "tool", tool: "delete_calendar", permission: "auto", evidence_turns: [2], reason: "x" },
+  { type: "tool", tool: "book_appointment", permission: "requires_approval", evidence_turns: [2], reason: "x" },
+  { type: "tool", text: "Add a reschedule tool.", evidence_turns: [2], reason: "x" }] }), call, configV1, "mock");
+assert.deepEqual(pp.improvements.map((i) => i.status), ["rejected", "rejected", "rejected", "proposed"]);
+assert.equal(pp.nextConfig, null);
 
 // ---- Tool proposals (capability gaps) ----
 const dry = toCall(demoCalls[3]!);

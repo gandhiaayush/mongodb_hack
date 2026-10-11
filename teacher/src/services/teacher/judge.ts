@@ -1,6 +1,6 @@
 import { GoogleGenAI } from "@google/genai";
 import { z } from "zod";
-import type { CallDoc, ConfigVersionDoc } from "../mongo/types.js";
+import { TOOL_NAMES, type CallDoc, type ConfigVersionDoc } from "../mongo/types.js";
 import { validateRecipe } from "./recipe.js";
 
 const score = z.coerce.number().min(0).max(10);
@@ -24,6 +24,9 @@ export const JudgeOutput = z.object({
     rule_kind: z.enum(["guardrail", "behavior"]).optional(),
     text: z.string().optional(),
     question: z.string().optional(),
+    // Permission change for a calendar tool. Kept as free strings here; plan.ts checks the values.
+    tool: z.string().optional(),
+    permission: z.string().optional(),
     evidence_turns: z.array(z.coerce.number().int()).default([]),
     reason: z.string().default(""),
   })).default([]),
@@ -78,6 +81,7 @@ You review one finished call and (1) grade it, (2) propose small changes to the 
 RUBRIC, each 0-10:
 - accuracy: every factual statement by the agent is supported by BUSINESS KNOWLEDGE or by a tool result in TOOL TRACE. Any invented price, time, policy or availability caps this at 3.
 - tool_use: right tool, right arguments, at the right moment; tool results relayed correctly. 10 if no tool was needed and none was called.
+  A booking (book_appointment) made before the caller clearly confirmed the date and time in the transcript, or with a date or time different from what the caller said, caps this at 3.
 - task_completion: the caller got what they needed, or a clear next step (message taken, escalation).
 - tone: natural, polite, sounds like a person on the phone.
 - brevity: short spoken turns, no rambling, no repeated questions.
@@ -92,6 +96,9 @@ IMPROVEMENTS (at most 3, fewer is better, zero is fine for a good call):
 - type "context": the agent lacked a business fact. Do NOT guess the fact. Put the question the OWNER must answer in "question".
   Use this whenever the agent said "I don't have that on file" or had to deflect on pricing, scheduling or hours, the delivery area, or a policy. Ask AT MOST 2 questions per call, each short, specific and answerable in a sentence or two (for example: "What do you charge to hem pants?", "Do you offer same-day pickup on Saturdays?"). Never guess or suggest the answer, never ask about something BUSINESS KNOWLEDGE already states, and give each question evidence_turns (the turns where the fact was missing). The owner's answers are added to BUSINESS KNOWLEDGE, so good questions make the receptionist better over time.
 - type "schema": a missing data field. Describe it in "text". This is a proposal only. For a missing TOOL, use "tool_proposal" (below), not an improvement.
+- type "tool" with "tool" and "permission": change what the agent may do with a calendar tool listed in TOOL PERMISSIONS.
+  permission is "disabled", "requires_approval" (owner confirms each use) or "auto". Lower it after a wrong date or time, a double booking,
+  a booking the caller did not confirm, or a tool error. Raise it by one level only when this call used the tool correctly.
 Every improvement needs evidence_turns (turn numbers) and a one-sentence reason. Do not add a rule that duplicates an existing one; modify it instead.
 When the agent got something wrong, propose the rule that would have prevented it, saying exactly what to do in that situation. Do this even if a broader rule already exists, because it was not enough: modify that rule if it is not locked, otherwise add a more specific one. Do not propose rules for things the agent did well.
 
@@ -126,7 +133,8 @@ Reply with ONLY a JSON object:
  "issues":[{"type":"invented_fact|missed_question|rule_violation|tool_error|tone|verbosity|other","turn":0,"quote":"","explanation":""}],
  "improvements":[{"type":"prompt","op":"add","rule_kind":"guardrail","text":"","evidence_turns":[0],"reason":""},
                  {"type":"prompt","op":"modify","rule_id":"r0","text":"","evidence_turns":[0],"reason":""},
-                 {"type":"context","question":"","evidence_turns":[0],"reason":""}],
+                 {"type":"context","question":"","evidence_turns":[0],"reason":""},
+                 {"type":"tool","tool":"book_appointment","permission":"requires_approval","evidence_turns":[0],"reason":""}],
  "tool_proposal":null}
 or, when there is a capability gap, "tool_proposal":{"name":"","description":"","params":[{"name":"","type":"string","description":"","required":true}],"write":true,"why":"",
  "mockup":{"sampleDialogue":[{"role":"caller","text":""},{"role":"agent","text":""},{"role":"tool","text":""},{"role":"agent","text":""}],"exampleArgs":{},"exampleResult":{}},
@@ -139,11 +147,14 @@ export function buildJudgeInput(call: CallDoc, cfg: ConfigVersionDoc): string {
   return `CURRENT RULES (config v${cfg.version}):
 ${rules || "(none)"}
 
+TOOL PERMISSIONS:
+${TOOL_NAMES.map((t) => `${t}: ${cfg.tools[t]}`).join("\n")}
+
 BUSINESS KNOWLEDGE (${cfg.company_name}):
 ${cfg.context || "(none)"}
 
 OUTCOME LABEL: ${call.outcome}
-(from tool results only: "message_taken" = a message was saved, "failed" = a tool returned an error, "answered" = neither, which does not mean the caller was satisfied)
+(from tool results only: "booked" = an appointment was created, "message_taken" = a message was saved, "failed" = a tool returned an error, "answered" = none of these, which does not mean the caller was satisfied)
 
 TOOL TRACE:
 ${tools}
@@ -156,13 +167,18 @@ export function teacherModel() {
   return process.env.GEMINI_TEACHER_MODEL ?? "gemini-3.8-flash";
 }
 
-/** Real judge: one Gemini call, JSON out, validated with zod, one retry. */
+/**
+ * Real judge: one Gemini call, JSON out, validated with zod.
+ * A bad reply gets one retry. An overloaded model (503) is retried up to 3 more times with a growing wait.
+ * A quota error (429) is never retried, because every attempt uses up more of the daily allowance.
+ */
 export const geminiJudge: Judge = async (call, cfg) => {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) throw new Error("GEMINI_API_KEY is not set (set it in .env, see README)");
   const ai = new GoogleGenAI({ apiKey });
   let lastErr: unknown;
-  for (let attempt = 0; attempt < 2; attempt++) {
+  let badReplies = 0;
+  for (let attempt = 0; attempt < 5; attempt++) {
     try {
       const res = await ai.models.generateContent({
         model: teacherModel(),
@@ -173,8 +189,14 @@ export const geminiJudge: Judge = async (call, cfg) => {
       return JudgeOutput.parse(JSON.parse(raw));
     } catch (e) {
       lastErr = e;
-      if (attempt === 0) await new Promise((r) => setTimeout(r, 3000)); // the model is often briefly overloaded
+      const status = (e as { status?: number }).status;
+      if (status === 429)
+        throw new Error(`teacher judge: Gemini quota exceeded for ${teacherModel()} (free tier allows 20 requests per day per model). ` +
+          `Enable billing for the key or set GEMINI_TEACHER_MODEL to another model. ${String(e).slice(0, 300)}`);
+      if (status === 503) await new Promise((r) => setTimeout(r, 4000 * (attempt + 1))); // overloaded: wait longer each time
+      else if (++badReplies > 1) break; // anything else: one retry, then give up
+      else await new Promise((r) => setTimeout(r, 3000));
     }
   }
-  throw new Error(`teacher judge failed twice: ${String(lastErr)}`);
+  throw new Error(`teacher judge failed: ${String(lastErr)}`);
 };

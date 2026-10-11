@@ -1,6 +1,15 @@
 // Demo data in the bridge's document shapes. Only ever written to a database whose name ends in "_demo".
 import { renderContext } from "../src/services/mongo/bridge.js";
-import type { BridgeCall, BridgeConfig } from "../src/services/mongo/types.js";
+import type { BridgeCall, BridgeConfig, WorkspaceDoc } from "../src/services/mongo/types.js";
+
+const open: [string, string] = ["09:00", "18:00"];
+/** Calendar settings for the demo salon. Maya's calendar is GOOGLE_CALENDAR_ID, or the signed-in account's own calendar. */
+export const demoWorkspace: WorkspaceDoc = {
+  _id: "default",
+  timezone: "America/Los_Angeles",
+  business_hours: { sun: null, mon: null, tue: open, wed: open, thu: open, fri: open, sat: open },
+  staff: [{ id: "maya", name: "Maya", calendar_id: process.env.GOOGLE_CALENDAR_ID?.trim() || "primary" }],
+};
 
 export const demoConfig: BridgeConfig = {
   version: 1,
@@ -16,13 +25,14 @@ export const demoConfig: BridgeConfig = {
       { id: "r1", kind: "guardrail", locked: true, text: "Only state facts that appear in the business information." },
       { id: "r2", kind: "behavior", text: "If the caller asks for a person, offer to take a message." },
     ],
+    tools: { check_availability: "auto", book_appointment: "requires_approval" },
   }),
   author: "system",
   note: "Demo seed",
   createdAt: new Date().toISOString(),
 };
 
-const call = (callSid: string, lines: [("caller" | "agent"), string][],
+export const call = (callSid: string, lines: [("caller" | "agent"), string][],
   toolCalls: Pick<BridgeCall["toolCalls"][number], "name" | "args" | "result">[] = []): BridgeCall => {
   const ts = new Date().toISOString();
   return {

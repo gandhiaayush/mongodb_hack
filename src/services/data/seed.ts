@@ -100,13 +100,13 @@ export const SEED_PRICING: PriceRow[] = [
 
 export const SEED_CONFIG: ConfigVersion = {
   version: 1,
-  companyName: "Charlie's Cleaners",
-  greeting: "Hey, this is Charlie's Cleaners.",
+  companyName: "CJ's Cleaning",
+  greeting: "Thanks for calling CJ's Cleaning, how can I help?",
   context: [
-    "Charlie's Cleaners is a friendly neighborhood dry cleaner.",
+    "CJ's Cleaning is a friendly neighborhood dry cleaner.",
     "Services: dry cleaning, laundry and press, alterations and repairs, wedding gown and leather care, and household items like comforters and curtains.",
-    "Turnaround: regular service takes 3 days. Expedited service is ready the next day for an extra fee.",
-    "Pickup hours: Monday to Saturday, 8am to 6pm. Closed on Sunday.",
+    "Turnaround: regular service takes about 3 business days, longer for coats, comforters and wedding gowns. Expedited is faster for an extra fee. Use the turnaround and quote tools for exact dates and prices.",
+    "Hours: Monday to Friday 8am to 6pm, Saturday 9am to 3pm, closed Sunday and some holidays. Always use the hours tool for open or closed questions.",
     "Payment: we accept cash, credit and debit cards, and Apple Pay. Payment is due at pickup.",
     "Special items such as leather, suede, beaded or vintage garments need staff to inspect them. Take a message and staff will call back with a quote.",
     "Stains: tell us about stains at drop-off so we can treat them, but we cannot guarantee every stain will come out.",
@@ -133,5 +133,6 @@ export const SEED_HOURS: StoreHours = {
     { day: "sat", open: "09:00", close: "15:00" },
     { day: "sun", closed: true },
   ],
+  slotCapacity: { morning: 4, afternoon: 4, evening: 3 },
   exceptions: [{ date: "2026-11-26", closed: true, reason: "Thanksgiving" }, { date: "2026-12-25", closed: true, reason: "Christmas Day" }],
 };

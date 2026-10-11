@@ -35,15 +35,24 @@ Built in (`src/services/gemini/tools.ts`):
 | `check_turnaround` | read | Business days and ready date for a garment and speed, skipping closed days |
 | `get_customer` | read | Name, preferences, recent orders, balance due |
 | `create_order` | **write** | Intake for a drop-off. Prices every item server-side (the model never supplies a price); fails if any item is unknown; assigns `ORD-nnnn`; upserts the customer |
-| `schedule_pickup` | **write** | Pickup or delivery for an existing order on an open day; delivery needs an address; one booking per order and type |
+| `check_pickup_slots` | read | Windows (morning, afternoon, evening) with room on a date, clipped to opening hours; offers the next days with room when full |
+| `schedule_pickup` | **write** | Pickup or delivery for an existing order. Enforces open days, window hours, capacity, one booking per order and type; delivery needs an address |
+| `reschedule_pickup`, `cancel_pickup` | **write** | Move or cancel an existing booking (capacity re-checked on a move) |
 | `add_order_note`, `take_message` | **write** | Special handling; staff callback |
 
 Safety rules in code, not in the prompt: the model cannot set prices or totals, cannot book on closed or past days, and cannot double-book. The prompt requires a read-back and a "yes" before `create_order`.
 
-Not built in on purpose (the teacher asks, the owner decides): `reschedule_pickup`, `create_claim`, `send_payment_link`, `send_ready_text`. See `teacher/README.md#tool-requests`.
+Not built in on purpose (the teacher asks, the owner decides): `create_claim`, `send_payment_link`, `send_ready_text`. See `teacher/README.md#tool-requests`.
 
 ## Atlas features worth using next
 - **Atlas Search** on `pricing.item + aliases` for fuzzy garment matching ("blaser" -> "Suit jacket").
 - **Change streams** on `calls` (`status` -> completed) so the teacher grades instantly instead of polling.
 - **Vector Search** over FAQs/policies if the business info outgrows the prompt.
 - **TTL index** on `calls.transcript` if recordings must expire.
+
+## Calendar and pickup slots
+- `store_hours.slotCapacity` sets bookings per window (default 4); windows are 08-12, 12-16 and 16-20, clipped to the day's hours, so Saturday (09-15) has no evening window.
+- Capacity is enforced inside the store (`bookAppointment` / `moveAppointment`), with an optimistic re-count on MongoDB so two simultaneous calls cannot overfill a window.
+- **Atlas is the source of truth** for availability. An optional `CalendarProvider` (`src/services/calendar/`) copies each booking to the owner's calendar (create, move, delete) and stores `externalEventId` and `calendarSync` on the appointment. A calendar failure is logged and marked `failed`; it never fails the booking.
+- Google Calendar: set `GOOGLE_CALENDAR_ID` and `GOOGLE_SERVICE_ACCOUNT_JSON`, and share the calendar with the service account's email. One-way sync only; the owner blocking time in Google does not yet reduce availability (next step: a free/busy check in `check_pickup_slots`).
+- Dashboard: Schedule tab (`GET /api/appointments?from=&days=`).

@@ -3,6 +3,8 @@ import { Router, Request, Response, NextFunction } from "express";
 import { config } from "../config";
 import { getStore } from "../services/gemini/liveSession";
 import { TOOLS } from "../services/gemini/tools";
+import { getCalendar } from "../services/calendar/provider";
+import { addDays, hoursFor, localToday, slotsFor } from "../services/data/shop";
 import { getActiveCalls } from "../services/calls/recorder";
 import type { CallRecord } from "../services/data/store";
 
@@ -173,7 +175,7 @@ apiRouter.post(
 );
 
 
-const WRITE_TOOLS = new Set(["add_order_note", "take_message", "create_order", "schedule_pickup"]);
+const WRITE_TOOLS = new Set(["add_order_note", "take_message", "create_order", "schedule_pickup", "reschedule_pickup", "cancel_pickup"]);
 
 // What each collection is for. Counts and samples come from the live database.
 const COLLECTION_META: Record<string, { owner: string; purpose: string; indexes: string[] }> = {
@@ -191,6 +193,33 @@ const COLLECTION_META: Record<string, { owner: string; purpose: string; indexes:
   improvements: { owner: "teacher", purpose: "Everything the teacher proposed, with evidence turns and final status.", indexes: ["status + created_at", "source_call_ids"] },
   tool_requests: { owner: "teacher", purpose: "New tools the teacher wants. Only the owner can enable one and set its endpoint.", indexes: ["name (unique)", "status + request_count"] },
 };
+
+apiRouter.get(
+  "/appointments",
+  wrap(async (req, res) => {
+    const store = await getStore();
+    const h = await store.getHours();
+    const from = typeof req.query.from === "string" && /^\d{4}-\d{2}-\d{2}$/.test(req.query.from) ? req.query.from : localToday(h.timezone);
+    const days = Math.min(Math.max(Number.parseInt(String(req.query.days ?? "7"), 10) || 7, 1), 31);
+    const to = addDays(from, days - 1);
+    const booked = await store.listAppointments(from, to);
+    const orders = new Map((await store.listOrders()).map((o) => [o.orderId, o]));
+    const out = [];
+    for (let i = 0; i < days; i++) {
+      const date = addDays(from, i);
+      const day = hoursFor(h, date);
+      const here = booked.filter((a) => a.date === date);
+      const counts: Record<string, number> = {};
+      for (const a of here) counts[a.window] = (counts[a.window] ?? 0) + 1;
+      out.push({
+        ...day,
+        windows: slotsFor(h, date, counts),
+        appointments: here.map((a) => ({ ...a, customerName: orders.get(a.orderId)?.customerName ?? null })),
+      });
+    }
+    res.json({ timezone: h.timezone, from, to, days: out, calendar: getCalendar()?.name ?? null });
+  })
+);
 
 apiRouter.get("/grades", wrap(async (_req, res) => { res.json((await (await getStore()).getTeacherDocs()).grades); }));
 apiRouter.get("/improvements", wrap(async (_req, res) => { res.json((await (await getStore()).getTeacherDocs()).improvements); }));

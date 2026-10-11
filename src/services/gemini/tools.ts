@@ -1,6 +1,7 @@
 import { FunctionDeclaration, Type } from "@google/genai";
 import { findPriceRow, type CustomTool, type DataStore, type Speed } from "../data/store";
-import { WINDOWS, hoursFor, isDate, localTime, localToday, nextOpenDate, readyBy, type AppointmentWindow } from "../data/shop";
+import { getCalendar, eventContext } from "../calendar/provider";
+import { WINDOWS, capacityFor, hoursFor, slotsFor, addDays, windowRange, isDate, localTime, localToday, nextOpenDate, readyBy, type Appointment, type AppointmentWindow, type StoreHours } from "../data/shop";
 
 export const TOOLS: FunctionDeclaration[] = [
   {
@@ -146,7 +147,7 @@ export const TOOLS: FunctionDeclaration[] = [
   {
     name: "schedule_pickup",
     description:
-      "Book a customer pickup or a home delivery for an existing order, on a day the store is open. Use after get_order shows the order. A delivery needs an address. To change an existing booking, take a message instead.",
+      "Book a customer pickup or a home delivery for an existing order. Use after get_order shows the order and after check_pickup_slots shows the window has room. A delivery needs an address. To change an existing booking use reschedule_pickup.",
     parameters: {
       type: Type.OBJECT,
       properties: {
@@ -157,6 +158,42 @@ export const TOOLS: FunctionDeclaration[] = [
         address: { type: Type.STRING, description: "Delivery address, required for delivery" },
       },
       required: ["orderId", "date", "window"],
+    },
+  },
+  {
+    name: "check_pickup_slots",
+    description:
+      "Which pickup or delivery windows (morning, afternoon, evening) have room on a date, with the hours of each. Use before booking, or when the caller asks what times are available. If the date is full or closed the result lists the next days with room.",
+    parameters: {
+      type: Type.OBJECT,
+      properties: { date: { type: Type.STRING, description: "YYYY-MM-DD. Omit for today." } },
+    },
+  },
+  {
+    name: "reschedule_pickup",
+    description:
+      "Move an existing pickup or delivery booking to a new date and window. Check the new window with check_pickup_slots first.",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        orderId: { type: Type.STRING, description: "Order number" },
+        newDate: { type: Type.STRING, description: "YYYY-MM-DD" },
+        window: { type: Type.STRING, enum: ["morning", "afternoon", "evening"], description: "New window" },
+        type: { type: Type.STRING, enum: ["pickup", "delivery"], description: "Which booking to move, pickup by default" },
+      },
+      required: ["orderId", "newDate", "window"],
+    },
+  },
+  {
+    name: "cancel_pickup",
+    description: "Cancel an existing pickup or delivery booking. Only after the caller clearly asks to cancel it.",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        orderId: { type: Type.STRING, description: "Order number" },
+        type: { type: Type.STRING, enum: ["pickup", "delivery"], description: "pickup by default" },
+      },
+      required: ["orderId"],
     },
   },
   {
@@ -286,6 +323,27 @@ export async function executeTool(
       return { created: true, orderId: order.orderId, total: order.price, speed, readyBy: order.expectedDate, items: order.items };
     }
 
+    case "check_pickup_slots": {
+      const h = await store.getHours();
+      const today = localToday(h.timezone);
+      const requested = str(args, "date");
+      const date = !requested || requested.toLowerCase() === "today" ? today : requested;
+      if (!isDate(date)) return { error: "date must be YYYY-MM-DD" };
+      if (date < today) return { error: "That date has passed." };
+      const day = hoursFor(h, date);
+      const slots = await openSlots(store, h, date);
+      const result: Record<string, unknown> = { date, open: day.isOpen, ...(day.reason ? { reason: day.reason } : {}), windows: slots.map((x) => ({ window: x.window, from: x.start, to: x.end, spotsLeft: x.available })) };
+      if (!slots.some((x) => x.available > 0)) {
+        const alternatives: { date: string; windows: string[] }[] = [];
+        for (let d = addDays(date, 1), n = 0; n < 14 && alternatives.length < 3; d = addDays(d, 1), n++) {
+          const open = (await openSlots(store, h, d)).filter((x) => x.available > 0).map((x) => x.window);
+          if (open.length) alternatives.push({ date: d, windows: open });
+        }
+        result.nextAvailable = alternatives;
+      }
+      return result;
+    }
+
     case "schedule_pickup": {
       const orderId = str(args, "orderId");
       const date = str(args, "date");
@@ -296,13 +354,50 @@ export async function executeTool(
       const order = await store.getOrderById(orderId);
       if (!order) return { scheduled: false, error: `No order ${orderId}.` };
       const h = await store.getHours();
-      if (date < localToday(h.timezone)) return { scheduled: false, error: "That date has passed." };
-      const day = hoursFor(h, date);
-      if (!day.isOpen) return { scheduled: false, error: `Closed on ${date}${day.reason ? ` (${day.reason})` : ""}.`, nextOpenDate: nextOpenDate(h, date) };
+      const bad = await slotProblem(store, h, date, window);
+      if (bad) return { scheduled: false, ...bad };
       if (type === "delivery" && !address) return { scheduled: false, error: "A delivery needs an address." };
-      if ((await store.getAppointments(order.orderId)).some((a) => a.type === type)) return { scheduled: false, error: `${order.orderId} already has a ${type} booked. Take a message to change it.` };
-      const appt = await store.createAppointment({ type, orderId: order.orderId, phone: order.phone, date, window, ...(address ? { address } : {}) });
-      return { scheduled: true, appointmentId: appt.appointmentId, type, orderId: order.orderId, date, window, opens: day.opens, closes: day.closes };
+      if ((await store.getAppointments(order.orderId)).some((a) => a.type === type)) return { scheduled: false, error: `${order.orderId} already has a ${type} booked. Use reschedule_pickup to move it.` };
+      const appt = await store.bookAppointment({ type, orderId: order.orderId, phone: order.phone, date, window, ...(address ? { address } : {}) }, capacityFor(h, window));
+      if (!appt) return { scheduled: false, error: `The ${window} on ${date} just filled up.`, ...(await alternativesFor(store, h, date)) };
+      await syncCalendar(store, h, appt, order.customerName, "create");
+      const range = windowRange(h, date, window)!;
+      return { scheduled: true, appointmentId: appt.appointmentId, type, orderId: order.orderId, date, window, from: range[0], to: range[1] };
+    }
+
+    case "reschedule_pickup": {
+      const orderId = str(args, "orderId");
+      const date = str(args, "newDate");
+      const window = str(args, "window") as AppointmentWindow;
+      const type = str(args, "type") === "delivery" ? "delivery" : "pickup";
+      if (!orderId || !isDate(date) || !WINDOWS.includes(window)) return { error: "Provide orderId, newDate (YYYY-MM-DD) and window." };
+      const order = await store.getOrderById(orderId);
+      if (!order) return { rescheduled: false, error: `No order ${orderId}.` };
+      const existing = (await store.getAppointments(order.orderId)).find((a) => a.type === type);
+      if (!existing) return { rescheduled: false, error: `${order.orderId} has no ${type} booked. Use schedule_pickup.` };
+      const h = await store.getHours();
+      if (existing.date === date && existing.window === window) return { rescheduled: false, error: "That is already the booked slot." };
+      const bad = await slotProblem(store, h, date, window, existing.appointmentId);
+      if (bad) return { rescheduled: false, ...bad };
+      const moved = await store.moveAppointment(existing.appointmentId, date, window, capacityFor(h, window));
+      if (!moved) return { rescheduled: false, error: `The ${window} on ${date} just filled up.`, ...(await alternativesFor(store, h, date)) };
+      await syncCalendar(store, h, moved, order.customerName, "update");
+      const range = windowRange(h, date, window)!;
+      return { rescheduled: true, appointmentId: moved.appointmentId, orderId: order.orderId, type, date, window, from: range[0], to: range[1], previous: { date: existing.date, window: existing.window } };
+    }
+
+    case "cancel_pickup": {
+      const orderId = str(args, "orderId");
+      const type = str(args, "type") === "delivery" ? "delivery" : "pickup";
+      if (!orderId) return { error: "Provide orderId." };
+      const order = await store.getOrderById(orderId);
+      if (!order) return { cancelled: false, error: `No order ${orderId}.` };
+      const existing = (await store.getAppointments(order.orderId)).find((a) => a.type === type);
+      if (!existing) return { cancelled: false, error: `${order.orderId} has no ${type} booked.` };
+      const done = await store.cancelAppointment(existing.appointmentId);
+      if (!done) return { cancelled: false, error: "Could not cancel it." };
+      await syncCalendar(store, await store.getHours(), done, order.customerName, "delete");
+      return { cancelled: true, appointmentId: done.appointmentId, orderId: order.orderId, type, date: done.date, window: done.window };
     }
 
     case "get_customer": {
@@ -322,6 +417,60 @@ export async function executeTool(
 
     default:
       return { error: `Unknown tool: ${name}` };
+  }
+}
+
+// ---- Pickup slot helpers -----------------------------------------------------------------------
+
+async function openSlots(store: DataStore, h: StoreHours, date: string) {
+  const booked: Partial<Record<AppointmentWindow, number>> = {};
+  for (const a of await store.listAppointments(date, date)) booked[a.window] = (booked[a.window] ?? 0) + 1;
+  return slotsFor(h, date, booked);
+}
+
+/** Why a date and window cannot be booked, or null if it can. A move ignores the booking being moved. */
+async function slotProblem(store: DataStore, h: StoreHours, date: string, window: AppointmentWindow, ignoreId?: string) {
+  if (date < localToday(h.timezone)) return { error: "That date has passed." };
+  const day = hoursFor(h, date);
+  if (!day.isOpen) return { error: `Closed on ${date}${day.reason ? ` (${day.reason})` : ""}.`, nextOpenDate: nextOpenDate(h, date) };
+  const range = windowRange(h, date, window);
+  if (!range) return { error: `No ${window} window on ${date}; the store is open ${day.opens} to ${day.closes}.` };
+  const taken = (await store.listAppointments(date, date)).filter((a) => a.window === window && a.appointmentId !== ignoreId).length;
+  if (taken >= capacityFor(h, window)) return { error: `The ${window} on ${date} is full.`, ...(await alternativesFor(store, h, date)) };
+  return null;
+}
+
+async function alternativesFor(store: DataStore, h: StoreHours, date: string) {
+  const sameDay = (await openSlots(store, h, date)).filter((x) => x.available > 0).map((x) => x.window);
+  const nextAvailable: { date: string; windows: string[] }[] = [];
+  for (let d = addDays(date, 1), n = 0; n < 14 && nextAvailable.length < 3; d = addDays(d, 1), n++) {
+    const open = (await openSlots(store, h, d)).filter((x) => x.available > 0).map((x) => x.window);
+    if (open.length) nextAvailable.push({ date: d, windows: open });
+  }
+  return { otherWindowsThatDay: sameDay, nextAvailable };
+}
+
+/** Best-effort calendar copy. The booking in the database stands even if this fails. */
+async function syncCalendar(store: DataStore, h: StoreHours, appt: Appointment, customerName: string, op: "create" | "update" | "delete"): Promise<void> {
+  const cal = getCalendar();
+  if (!cal) return;
+  try {
+    const ctx = eventContext(appt, h, customerName);
+    if (op === "create") {
+      const externalEventId = await cal.createEvent(appt, ctx);
+      await store.setAppointmentSync(appt.appointmentId, { externalEventId, calendarSync: "synced" });
+    } else if (appt.externalEventId && op === "update") {
+      await cal.updateEvent(appt.externalEventId, appt, ctx);
+      await store.setAppointmentSync(appt.appointmentId, { calendarSync: "synced" });
+    } else if (appt.externalEventId && op === "delete") {
+      await cal.deleteEvent(appt.externalEventId);
+    } else if (op === "update") {
+      const externalEventId = await cal.createEvent(appt, ctx); // booked before sync was on: create it now
+      await store.setAppointmentSync(appt.appointmentId, { externalEventId, calendarSync: "synced" });
+    }
+  } catch (err) {
+    console.error(`[calendar] ${op} failed for ${appt.appointmentId}:`, err instanceof Error ? err.message : err);
+    await store.setAppointmentSync(appt.appointmentId, { calendarSync: "failed" }).catch(() => undefined);
   }
 }
 

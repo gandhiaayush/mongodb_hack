@@ -19,6 +19,8 @@ export interface StoreHours {
   phone: string;
   weekly: DayHours[];
   exceptions: { date: string; closed?: boolean; open?: string; close?: string; reason?: string }[];
+  /** Bookings allowed per window (pickups and deliveries together). Defaults to DEFAULT_CAPACITY. */
+  slotCapacity?: Partial<Record<AppointmentWindow, number>>;
 }
 
 export interface HoursForDate {
@@ -68,6 +70,10 @@ export interface Appointment {
   address?: string;
   status: "scheduled" | "completed" | "cancelled";
   createdAt: string;
+  updatedAt?: string;
+  // Calendar sync. Atlas is the source of truth; the calendar copy is best effort.
+  externalEventId?: string;
+  calendarSync?: "synced" | "failed" | "off";
 }
 
 export const WINDOWS: AppointmentWindow[] = ["morning", "afternoon", "evening"];
@@ -111,4 +117,51 @@ export function readyBy(h: StoreHours, today: string, days: number): string {
   let d = today;
   for (let n = 0; n < days; n++) d = nextOpenDate(h, d);
   return d;
+}
+
+// ---- Pickup slots -----------------------------------------------------------------------------
+
+export const DEFAULT_CAPACITY = 4;
+
+/** Nominal window times. A window is only offered if it overlaps the store's open hours that day. */
+export const WINDOW_TIMES: Record<AppointmentWindow, [string, string]> = {
+  morning: ["08:00", "12:00"],
+  afternoon: ["12:00", "16:00"],
+  evening: ["16:00", "20:00"],
+};
+
+export interface SlotInfo {
+  window: AppointmentWindow;
+  start: string; // clipped to opening hours
+  end: string;
+  capacity: number;
+  booked: number;
+  available: number;
+}
+
+export function capacityFor(h: StoreHours, w: AppointmentWindow): number {
+  return h.slotCapacity?.[w] ?? DEFAULT_CAPACITY;
+}
+
+/** The window as actually served on a day: clipped to opening hours, or null if the store is closed then. */
+export function windowRange(h: StoreHours, date: string, w: AppointmentWindow): [string, string] | null {
+  const day = hoursFor(h, date);
+  if (!day.isOpen) return null;
+  const [ws, we] = WINDOW_TIMES[w];
+  const start = ws > day.opens! ? ws : day.opens!;
+  const end = we < day.closes! ? we : day.closes!;
+  return start < end ? [start, end] : null;
+}
+
+/** Slots for one date given how many bookings each window already has. */
+export function slotsFor(h: StoreHours, date: string, booked: Partial<Record<AppointmentWindow, number>>): SlotInfo[] {
+  const out: SlotInfo[] = [];
+  for (const w of WINDOWS) {
+    const r = windowRange(h, date, w);
+    if (!r) continue;
+    const capacity = capacityFor(h, w);
+    const b = booked[w] ?? 0;
+    out.push({ window: w, start: r[0], end: r[1], capacity, booked: b, available: Math.max(capacity - b, 0) });
+  }
+  return out;
 }

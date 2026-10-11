@@ -125,8 +125,15 @@ export interface DataStore {
   getHours(): Promise<StoreHours>;
   getCustomer(phone: string): Promise<Customer | null>;
   createOrder(input: NewOrder): Promise<Order>;
-  createAppointment(input: Omit<Appointment, "appointmentId" | "status" | "createdAt">): Promise<Appointment>;
+  /** Books a slot, or returns null if that window is full. Capacity is enforced here so it holds under concurrent calls. */
+  bookAppointment(input: Omit<Appointment, "appointmentId" | "status" | "createdAt">, capacity: number): Promise<Appointment | null>;
+  /** Moves a booking to another slot (null if full). */
+  moveAppointment(appointmentId: string, date: string, window: Appointment["window"], capacity: number): Promise<Appointment | null>;
+  cancelAppointment(appointmentId: string): Promise<Appointment | null>;
+  setAppointmentSync(appointmentId: string, sync: { externalEventId?: string; calendarSync: "synced" | "failed" | "off" }): Promise<void>;
   getAppointments(orderId: string): Promise<Appointment[]>;
+  /** Scheduled appointments from `from` to `to` inclusive (YYYY-MM-DD). */
+  listAppointments(from: string, to: string): Promise<Appointment[]>;
   describeCollections(): Promise<{ mode: "atlas" | "memory"; db: string; collections: CollectionInfo[] }>;
   getTeacherDocs(): Promise<TeacherDocs>;
   answerOwnerQuestion(improvementId: string, answer: string): Promise<Record<string, unknown>>;
@@ -275,10 +282,33 @@ export function createMemoryStore(): DataStore {
       });
       return structuredClone(order);
     },
-    async createAppointment(input) {
+    async bookAppointment(input, capacity) {
+      const taken = appointments.filter((x) => x.status === "scheduled" && x.date === input.date && x.window === input.window).length;
+      if (taken >= capacity) return null;
       const appt: Appointment = { ...input, appointmentId: `APT-${String(appointments.length + 1).padStart(4, "0")}`, status: "scheduled", createdAt: new Date().toISOString() };
       appointments.push(appt);
       return structuredClone(appt);
+    },
+    async moveAppointment(id, date, window, capacity) {
+      const appt = appointments.find((x) => x.appointmentId === id && x.status === "scheduled");
+      if (!appt) return null;
+      const taken = appointments.filter((x) => x.status === "scheduled" && x.date === date && x.window === window && x.appointmentId !== id).length;
+      if (taken >= capacity) return null;
+      Object.assign(appt, { date, window, updatedAt: new Date().toISOString() });
+      return structuredClone(appt);
+    },
+    async cancelAppointment(id) {
+      const appt = appointments.find((x) => x.appointmentId === id && x.status === "scheduled");
+      if (!appt) return null;
+      Object.assign(appt, { status: "cancelled", updatedAt: new Date().toISOString() });
+      return structuredClone(appt);
+    },
+    async setAppointmentSync(id, sync) {
+      const appt = appointments.find((x) => x.appointmentId === id);
+      if (appt) Object.assign(appt, sync);
+    },
+    async listAppointments(from, to) {
+      return structuredClone(appointments.filter((x) => x.status === "scheduled" && x.date >= from && x.date <= to).sort((a, b) => a.date.localeCompare(b.date)));
     },
     async getAppointments(orderId) {
       return structuredClone(appointments.filter((a) => a.orderId === orderId && a.status === "scheduled"));
@@ -454,11 +484,37 @@ export async function createMongoStore(uri: string, dbName: string): Promise<Dat
       }
       throw new Error("Could not allocate an order number");
     },
-    async createAppointment(input) {
+    async bookAppointment(input, capacity) {
+      const slot = { date: input.date, window: input.window, status: "scheduled" as const };
+      if ((await appointments.countDocuments(slot)) >= capacity) return null;
       const count = await appointments.countDocuments();
       const appt: Appointment = { ...input, appointmentId: `APT-${String(count + 1).padStart(4, "0")}`, status: "scheduled", createdAt: new Date().toISOString() };
       await appointments.insertOne({ ...appt });
+      // Optimistic check: two calls can pass the count above at once, so re-count and let the later one back out.
+      const mine = await appointments.find(slot, { projection: { _id: 1, appointmentId: 1 } }).sort({ createdAt: 1, _id: 1 }).toArray();
+      if (mine.length > capacity && !mine.slice(0, capacity).some((m) => m.appointmentId === appt.appointmentId)) {
+        await appointments.deleteOne({ appointmentId: appt.appointmentId });
+        return null;
+      }
       return appt;
+    },
+    async moveAppointment(id, date, window, capacity) {
+      const appt = await appointments.findOne({ appointmentId: id, status: "scheduled" }, proj);
+      if (!appt) return null;
+      const taken = await appointments.countDocuments({ date, window, status: "scheduled", appointmentId: { $ne: id } });
+      if (taken >= capacity) return null;
+      await appointments.updateOne({ appointmentId: id }, { $set: { date, window, updatedAt: new Date().toISOString() } });
+      return { ...appt, date, window };
+    },
+    async cancelAppointment(id) {
+      const res = await appointments.findOneAndUpdate({ appointmentId: id, status: "scheduled" }, { $set: { status: "cancelled", updatedAt: new Date().toISOString() } }, { returnDocument: "after", projection: { _id: 0 } });
+      return res;
+    },
+    async setAppointmentSync(id, sync) {
+      await appointments.updateOne({ appointmentId: id }, { $set: sync });
+    },
+    async listAppointments(from, to) {
+      return appointments.find({ status: "scheduled", date: { $gte: from, $lte: to } }, proj).sort({ date: 1, window: 1 }).toArray();
     },
     async getAppointments(orderId) {
       return appointments.find({ orderId, status: "scheduled" }, proj).toArray();

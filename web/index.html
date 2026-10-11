@@ -338,6 +338,28 @@ tr.gr-d td{background:var(--bg);padding:14px 18px}
 @media (max-width:1000px){.kpis{grid-template-columns:repeat(3,1fr)}.two{grid-template-columns:1fr}.pipe{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media (max-width:620px){.kpis{grid-template-columns:repeat(2,1fr);gap:10px}.pipe{grid-template-columns:1fr}.feed-item{grid-template-columns:auto 1fr}.feed-r{grid-column:2;align-items:flex-start;flex-direction:row;flex-wrap:wrap}.atlas-chip{display:none}}
 
+/* ─── Schedule ───────────────────────────────────────────────────────── */
+.week{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:12px;align-items:start}
+.day{background:var(--surface);border:1px solid var(--border);border-radius:var(--rc);box-shadow:var(--shadow);overflow:hidden;min-width:0}
+.day.today{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.day-h{padding:10px 12px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:baseline;gap:6px}
+.day-h b{font-family:var(--fh);font-size:1.05rem;font-weight:600}
+.day-h span{font-size:.7rem;color:var(--muted)}
+.day.closed{background:var(--hover)}
+.day-closed{padding:22px 12px;text-align:center;color:var(--muted);font-size:.8rem}
+.win{padding:10px 12px;border-bottom:1px solid var(--border)}
+.win:last-child{border-bottom:none}
+.win-h{display:flex;justify-content:space-between;align-items:center;font-size:.68rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.cap{display:flex;gap:3px;margin:6px 0}
+.cap i{flex:1;height:6px;border-radius:3px;background:var(--border)}
+.cap i.on{background:var(--accent)}.cap.full i.on{background:var(--warn)}
+.appt{font-size:.78rem;margin-top:5px;line-height:1.35;display:flex;gap:6px;align-items:baseline}
+.appt .ty{font-size:.62rem;font-weight:700;border-radius:4px;padding:0 5px;background:var(--accent-soft);color:var(--accent);text-transform:uppercase;letter-spacing:.04em}
+.appt .ty.d{background:rgba(1,107,248,.12);color:var(--teacher)}
+.appt small{color:var(--muted);font-family:var(--fm);font-size:.66rem}
+@media (max-width:1100px){.week{grid-template-columns:repeat(4,minmax(0,1fr))}}
+@media (max-width:620px){.week{grid-template-columns:1fr}}
+
 </style>
 </head>
 <body>
@@ -355,6 +377,7 @@ tr.gr-d td{background:var(--bg);padding:14px 18px}
   <button class="tab active" role="tab" data-tab="overview" type="button">Overview</button>
   <button class="tab" role="tab" data-tab="calls" type="button">Live Calls <span class="tab-badge hidden" id="live-badge">0</span></button>
   <button class="tab" role="tab" data-tab="orders" type="button">Orders</button>
+  <button class="tab" role="tab" data-tab="schedule" type="button">Schedule</button>
   <button class="tab" role="tab" data-tab="messages" type="button">Messages</button>
   <button class="tab" role="tab" data-tab="company" type="button">Company Context</button>
   <button class="tab" role="tab" data-tab="improvements" type="button">Improvements</button>
@@ -383,6 +406,8 @@ tr.gr-d td{background:var(--bg);padding:14px 18px}
   <section class="panel" id="panel-orders">
     <div id="orders-wrap"></div>
   </section>
+
+  <section class="panel" id="panel-schedule"><div id="schedule-root"></div></section>
 
   <section class="panel" id="panel-messages">
     <div id="messages-wrap"></div>
@@ -612,10 +637,10 @@ var Demo = (function(){
     {_id:"CA7d05f7_imp1",source_call_ids:["CA7d05f7"],type:"context",status:"proposed",payload:{question:"Do you accept wedding dress drop-offs without an appointment?"},evidence_turns:[3],reason:"Caller asked and the agent had no answer.",created_at:ts(700)},
     {_id:"CA7d07b4_imp1",source_call_ids:["CA7d07b4"],type:"context",status:"proposed",payload:{question:"What is the surcharge for same-day service?"},evidence_turns:[4],reason:"Two callers asked about same-day service.",created_at:ts(520)},
     {_id:"CA7d04e1_imp1",source_call_ids:["CA7d04e1"],type:"prompt",status:"rejected",payload:{op:"add",rule_kind:"behavior",text:"Tell callers that rush service costs $15 extra."},evidence_turns:[2],reason:"Callers want rush prices.",rejected_reason:"rule contains facts not in the knowledge base: 15",created_at:ts(860)},
-    {_id:"CA7d07b4_imp2",source_call_ids:["CA7d07b4"],type:"tool",status:"proposed",payload:{tool:{name:"reschedule_pickup",description:"Move a scheduled pickup or delivery to a new date and time window.",side_effect:"write",parameters:[{name:"orderId",type:"string",description:"Order number",required:true},{name:"newDate",type:"string",description:"New date",required:true},{name:"window",type:"string",description:"Morning or afternoon",required:false}]}},evidence_turns:[5],reason:"Caller wanted to move their pickup and no tool could.",created_at:ts(520)}
+    {_id:"CA7d07b4_imp2",source_call_ids:["CA7d07b4"],type:"tool",status:"proposed",payload:{tool:{name:"reorder_last_order",description:"Repeat the caller's most recent order for a new drop-off.",side_effect:"write",parameters:[{name:"phone",type:"string",description:"Caller phone",required:true}]}},evidence_turns:[5],reason:"Regular customer wanted the usual shirts order again.",created_at:ts(520)}
   ];
   var toolReq=[
-    {_id:"reschedule_pickup",name:"reschedule_pickup",description:"Move a scheduled pickup or delivery to a new date and time window.",side_effect:"write",parameters:[{name:"orderId",type:"string",required:true},{name:"newDate",type:"string",required:true},{name:"window",type:"string",required:false}],status:"requested",request_count:4,reason:"Caller wanted to move their pickup and no tool could.",source_call_ids:["CA7d07b4"]},
+    {_id:"reorder_last_order",name:"reorder_last_order",description:"Repeat the caller's most recent order for a new drop-off.",side_effect:"write",parameters:[{name:"phone",type:"string",required:true}],status:"requested",request_count:4,reason:"Regular customers ask to repeat their usual shirts order.",source_call_ids:["CA7d07b4"]},
     {_id:"create_claim",name:"create_claim",description:"File a damage or missing-item claim on an order for the owner to review.",side_effect:"write",parameters:[{name:"orderId",type:"string",required:true},{name:"issue",type:"string",required:true}],status:"requested",request_count:2,reason:"Two callers reported a missing button and a stain after cleaning.",source_call_ids:["CA7d02b9"]},
     {_id:"send_ready_text",name:"send_ready_text",description:"Text the customer when their order is ready for pickup.",side_effect:"write",parameters:[{name:"orderId",type:"string",required:true}],status:"approved",request_count:3,reason:"Callers ask to be notified instead of calling back.",source_call_ids:["CA7d05f7"]},
     {_id:"get_loyalty_balance",name:"get_loyalty_balance",description:"Look up the caller's loyalty points and free-cleaning credits.",side_effect:"read",parameters:[{name:"phone",type:"string",required:true}],status:"enabled",request_count:6,reason:"Callers ask how many points they have.",source_call_ids:["CA7d01a3"],endpoint:"https://crm.cjscleaning.example/tools/get_loyalty_balance"},
@@ -626,7 +651,7 @@ var Demo = (function(){
     {name:"list_prices",description:"Full price list",sideEffect:"read"},{name:"get_hours",description:"Open or closed, closing time, address",sideEffect:"read"},
     {name:"quote_estimate",description:"Total for several garments with ready date",sideEffect:"read"},{name:"check_turnaround",description:"When a new drop-off would be ready",sideEffect:"read"},
     {name:"get_customer",description:"Profile, recent orders, balance due",sideEffect:"read"},{name:"create_order",description:"Start a new drop-off order",sideEffect:"write"},
-    {name:"schedule_pickup",description:"Book a pickup or delivery",sideEffect:"write"},{name:"add_order_note",description:"Add a special-handling note to an order",sideEffect:"write"},{name:"take_message",description:"Save a message for staff",sideEffect:"write"}
+    {name:"check_pickup_slots",description:"Open pickup and delivery windows for a date",sideEffect:"read"},{name:"schedule_pickup",description:"Book a pickup or delivery",sideEffect:"write"},{name:"reschedule_pickup",description:"Move a booking to a new slot",sideEffect:"write"},{name:"cancel_pickup",description:"Cancel a booking",sideEffect:"write"},{name:"add_order_note",description:"Add a special-handling note to an order",sideEffect:"write"},{name:"take_message",description:"Save a message for staff",sideEffect:"write"}
   ];
   function col(name,count,owner,purpose,indexes,sample){ return {name:name,count:count,owner:owner,purpose:purpose,indexes:indexes,sample:sample}; }
   var atlas={mode:"atlas",db:"cjs_cleaning",collections:[
@@ -645,6 +670,27 @@ var Demo = (function(){
     col("tool_requests",5,"teacher","New tools the teacher wants. Only the owner can enable one and set its endpoint.",["name (unique)","status + request_count"],{_id:"reschedule_pickup",status:"requested",request_count:4})
   ]};
   function find(arr2,key,v){ return arr2.filter(function(x){return x[key]===v;})[0]; }
+  /* schedule demo: next 7 days, shop closed Sunday */
+  function sched(){
+    var days=[], names=["Maria Lopez","Priya Shah","James O'Neil","Aiko Tanaka","Sam Rivera","Devon Park","Hannah Cole","Marcus Johnson"];
+    var cap={morning:4,afternoon:4,evening:3}, times={morning:["08:00","12:00"],afternoon:["12:00","16:00"],evening:["16:00","18:00"]};
+    var seed=[[2,1,0],[3,0,1],[1,2,2],[0,1,0],[2,3,1],[1,0,0],[0,0,0]];
+    for(var i=0;i<7;i++){
+      var d=new Date(now+i*864e5), ds=d.toISOString().slice(0,10), wd=d.getDay();
+      var closed=wd===0, sat=wd===6;
+      var o={date:ds,weekday:["sun","mon","tue","wed","thu","fri","sat"][wd],isOpen:!closed,windows:[],appointments:[]}; if(!closed){ o.opens=sat?"09:00":"08:00"; o.closes=sat?"15:00":"18:00"; } else o.reason="";
+      if(!closed){
+        ["morning","afternoon","evening"].forEach(function(w,k){
+          if(sat && w==="evening") return;
+          var n=Math.min(seed[i][k],cap[w]), t=times[w].slice(); if(sat&&w==="afternoon") t[1]="15:00"; if(sat&&w==="morning") t[0]="09:00";
+          o.windows.push({window:w,start:t[0],end:t[1],capacity:cap[w],booked:n,available:cap[w]-n});
+          for(var m=0;m<n;m++){ var idx=(i*3+k+m)%names.length; o.appointments.push({appointmentId:"APT-"+(100+i*9+k*3+m),type:(i+k+m)%4===0?"delivery":"pickup",orderId:"ORD-10"+(30+idx),phone:"+14155550"+(100+idx),date:ds,window:w,status:"scheduled",customerName:names[idx],calendarSync:"synced"}); }
+        });
+      }
+      days.push(o);
+    }
+    return {timezone:"America/Los_Angeles",from:days[0].date,to:days[6].date,days:days,calendar:"google"};
+  }
   var tick = 0;
   var script = [
     ["caller","It's the wool coat I dropped off last week."],
@@ -732,6 +778,7 @@ var Demo = (function(){
     else if(p.indexOf("/api/calls/")===0) out = calls.filter(function(c){return c.callSid===decodeURIComponent(p.slice(11));})[0];
     else if(p==="/api/orders") out = orders;
     else if(p==="/api/messages") out = messages;
+    else if(p==="/api/appointments") out = sched();
     else if(p==="/api/grades") out = grades;
     else if(p==="/api/improvements") out = imps;
     else if(p==="/api/tool-requests") out = {requests:toolReq,builtIn:builtIn};
@@ -1017,6 +1064,38 @@ function coFetch(){
   }).then(function(){ CO.busy=false; coRender(); });
 }
 
+/* schedule */
+function loadSchedule(){
+  if(!configured()||S.health===false) return Promise.resolve();
+  return api("/api/appointments?days=7").then(function(r){ T.sched=r; renderSchedule(); }).catch(function(){});
+}
+function renderSchedule(){
+  var el=$("schedule-root");
+  if(!configured()){ el.innerHTML=setupEmpty("Connect to see pickup and delivery bookings."); T.sgs=null; return; }
+  if(!T.sched){ el.innerHTML='<div class="empty"><p>Loading…</p></div>'; return; }
+  var sg=sig(T.sched); if(T.sgs===sg) return; T.sgs=sg;
+  var total=0, spots=0;
+  T.sched.days.forEach(function(d){ total+=d.appointments.length; d.windows.forEach(function(w){ spots+=w.available; }); });
+  var today=T.sched.from;
+  var cards=T.sched.days.map(function(d){
+    var dt=new Date(d.date+"T12:00:00"), name=dt.toLocaleDateString([],{weekday:"short"}), md=dt.toLocaleDateString([],{month:"short",day:"numeric"});
+    var head='<div class="day-h"><b>'+esc(name)+'</b><span>'+esc(md)+(d.isOpen?" · "+esc(d.opens)+"–"+esc(d.closes):"")+'</span></div>';
+    if(!d.isOpen) return '<div class="day closed'+(d.date===today?" today":"")+'">'+head+'<div class="day-closed">Closed'+(d.reason?" · "+esc(d.reason):"")+'</div></div>';
+    var wins=d.windows.map(function(w){
+      var bars=""; for(var i=0;i<w.capacity;i++) bars+='<i class="'+(i<w.booked?"on":"")+'"></i>';
+      var items=d.appointments.filter(function(a){return a.window===w.window;}).map(function(a){
+        return '<div class="appt"><span class="ty'+(a.type==="delivery"?" d":"")+'">'+(a.type==="delivery"?"Deliv":"Pick")+'</span><span>'+esc(a.customerName||a.phone)+' <small>'+esc(a.orderId)+'</small></span></div>';
+      }).join("");
+      return '<div class="win"><div class="win-h"><span>'+esc(w.window)+' '+esc(w.start)+'–'+esc(w.end)+'</span><span>'+w.booked+'/'+w.capacity+'</span></div><div class="cap'+(w.available===0?" full":"")+'">'+bars+'</div>'+items+'</div>';
+    }).join("");
+    return '<div class="day'+(d.date===today?" today":"")+'">'+head+wins+'</div>';
+  }).join("");
+  el.innerHTML='<div class="sec-h"><div><h2>Pickups and deliveries</h2><p>The next 7 days. The agent checks these windows while the caller is on the phone and can book, move or cancel a slot. Each window holds a limited number of bookings.</p></div>'+
+    '<span class="chip '+(T.sched.calendar?"g":"w")+'">'+(T.sched.calendar?"Synced to Google Calendar":"Calendar sync off")+'</span></div>'+
+    '<div class="kpis" style="grid-template-columns:repeat(3,1fr)"><div class="kpi"><div class="v">'+total+'</div><div class="l">Booked this week</div></div><div class="kpi"><div class="v">'+spots+'</div><div class="l">Spots still open</div></div><div class="kpi"><div class="v">'+esc(T.sched.timezone.split("/").pop().replace("_"," "))+'</div><div class="l">Shop time zone</div></div></div>'+
+    '<div class="week">'+cards+'</div>';
+}
+
 /* actions */
 function coSave(){
   if(CO.saving) return;
@@ -1188,6 +1267,7 @@ function setTab(t){
   document.querySelectorAll(".panel").forEach(function(p){ p.classList.toggle("active",p.id==="panel-"+t); });
   if(t==="calls") renderCalls();
   if(t==="company"){ coRender(); coFetch(); }
+  if(t==="schedule"){ T.sgs=null; renderSchedule(); loadSchedule(); }
   if(t==="improvements"||t==="tools"||t==="data"){ T.sg=T.sgt=T.sgd=null; renderTeacher(); loadTeacher(); }
 }
 $("tabs").addEventListener("click",function(e){ var b=e.target.closest(".tab"); if(b) setTab(b.getAttribute("data-tab")); });
@@ -1197,7 +1277,7 @@ function openSettings(){
   $("settings-ov").classList.remove("hidden"); $("in-api").focus();
 }
 function closeSettings(){ $("settings-ov").classList.add("hidden"); }
-function resetData(){ T.grades=T.imps=T.tools=T.atlas=null; T.sg=T.sgt=T.sgd=T.sgo=null; S.health=null; S.stats=S.calls=S.orders=S.messages=null; S.sel=null; S.sig={}; coReset(); ["call-list","detail","orders-wrap","messages-wrap","overview-recent","stats"].forEach(function(i){$(i).innerHTML="";}); }
+function resetData(){ T.grades=T.imps=T.tools=T.atlas=null; T.sg=T.sgt=T.sgd=T.sgo=T.sgs=null; T.sched=null; S.health=null; S.stats=S.calls=S.orders=S.messages=null; S.sel=null; S.sig={}; coReset(); ["call-list","detail","orders-wrap","messages-wrap","overview-recent","stats"].forEach(function(i){$(i).innerHTML="";}); }
 function applySettings(){
   S.api=$("in-api").value.trim().replace(/\/+$/,""); S.token=$("in-token").value.trim(); S.demo=$("in-demo").checked;
   sset("hanger_api",S.api); sset("hanger_token",S.token); sset("hanger_demo",S.demo?"1":"0");
@@ -1233,6 +1313,7 @@ var T = { grades:null, imps:null, tools:null, atlas:null, open:{}, busy:false, m
 
 function loadTeacher(){
   if(!configured() || S.health===false) return Promise.resolve();
+  loadSchedule();
   return Promise.all([
     api("/api/grades").catch(function(){return null;}),
     api("/api/improvements").catch(function(){return null;}),
@@ -1407,7 +1488,7 @@ function renderData(){
   el.innerHTML=html;
 }
 
-function renderTeacher(){ renderImprovements(); renderTools(); renderData(); renderAtlasChip(); renderOverviewQuality(); }
+function renderTeacher(){ renderSchedule(); renderImprovements(); renderTools(); renderData(); renderAtlasChip(); renderOverviewQuality(); }
 function renderAtlasChip(){
   var c=$("atlas-chip"), t=$("atlas-text");
   if(!T.atlas){ c.classList.add("off"); t.textContent=configured()?"Data store":"Not connected"; return; }

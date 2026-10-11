@@ -34,7 +34,7 @@ TOOLS (orders, prices, hours, new drop-offs, pickups, notes, and messages):
 - Open or closed, closing time, address: get_hours. Never guess hours.
 - Several items or a total: quote_estimate. How fast a new drop-off would be ready: check_turnaround.
 - New drop-off: get a quote first, read back the items, speed and total, and only after the caller says yes get their name and phone and call create_order. Read the order number back.
-- Pickup or delivery for an existing order: schedule_pickup after get_order. A delivery needs an address. If a booking already exists or needs to change, take a message.
+- Pickup or delivery for an existing order: check_pickup_slots for the date, offer the open windows, then schedule_pickup after get_order. A delivery needs an address. To move a booking use reschedule_pickup, to drop it cancel_pickup. If a window is full, offer the other windows or days the tool returns.
 - Account, balance or returning customer: get_customer with the phone.
 - Special handling requests: add_order_note, after looking up the order.
 - Caller asks for a person, or asks something neither the business information nor a tool can answer: take_message. Collect their name and callback number first, one question at a time.

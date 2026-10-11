@@ -61,3 +61,11 @@ Only an owner action can enable a tool and set its `endpoint`. The bridge (`src/
 tools at call start, declares them to Gemini Live, and POSTs `{ tool, args }` to the endpoint (5 s timeout, declared
 arguments only, optional `x-tool-secret` from `CUSTOM_TOOL_SECRET`). Until then the receptionist keeps its fallback
 (take a message). Model: set `GEMINI_TEACHER_MODEL` to change the grader.
+
+## Simulated learning journey
+
+`npm run simulate` runs 90 scripted calls through the real guardrails (`buildPlan`, tool validation, the rollback test) with a
+scripted judge, and writes `teacher/demo/journey.json` and `docs/teacher-journey.html` (open it in a browser: a map of how the teacher
+works, plus a call-by-call replay of what the receptionist is bad at and when each fix landed). It is a simulation: the callers and the
+judge are scripted, so it shows the loop's mechanics, not real grading quality. It also compares the rollback test as written (last 2
+calls) with a stricter proposal (5 calls and a 0.8 margin); see the findings at the bottom of the page.

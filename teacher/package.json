@@ -13,7 +13,8 @@
     "rollback": "tsx scripts/cli.ts rollback",
     "trend": "tsx scripts/cli.ts trend",
     "context": "tsx scripts/cli.ts context",
-    "tools": "tsx scripts/cli.ts tools"
+    "tools": "tsx scripts/cli.ts tools",
+    "simulate": "tsx scripts/simulate.ts"
   },
   "dependencies": {
     "@google/genai": "latest",

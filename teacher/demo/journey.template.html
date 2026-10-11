@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>CJ's Cleaning Teacher Journey</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" /><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Source+Code+Pro:wght@400;500&family=Source+Serif+4:opsz,wght@8..60,500;8..60,600;8..60,700&display=swap" rel="stylesheet" />
+<style>
+:root{--forest:#001E2B;--spring:#00ED64;--bg:#F9FBFA;--ink:#001E2B;--surface:#fff;--border:#DCE4E1;--muted:#5C6C75;--hover:#F1F6F4;--accent:#00684A;--accent-soft:#E3FCF7;--bad:#CF2F28;--warn:#946B00;--blue:#016BF8;--ok:#00A35C;
+ --fh:"Source Serif 4",Georgia,serif;--fb:"Inter",system-ui,sans-serif;--fm:"Source Code Pro",ui-monospace,monospace;--r:10px}
+@media (prefers-color-scheme:dark){:root{--bg:#00141D;--ink:#E8EDEB;--surface:#0A2330;--border:#1C3A49;--muted:#93A4AB;--hover:#0F2D3B;--accent:#00ED64;--accent-soft:#073B35;--bad:#FF7A70;--warn:#FFC010;--blue:#5CA8FF;--ok:#00ED64}}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--fb);font-size:15px;line-height:1.5}
+.hdr{background:var(--forest);color:#fff;padding:14px 28px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.logo{width:34px;height:34px;border-radius:9px;background:var(--spring);display:grid;place-items:center}
+.logo svg{width:20px;height:20px;stroke:var(--forest);fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.hdr b{font-family:var(--fh);font-size:1.3rem}.hdr small{color:#9fb4bb;letter-spacing:.1em;text-transform:uppercase;font-size:.68rem;border-left:1px solid #1f4656;padding-left:12px}
+.sim{background:#FFF4D6;color:#5a4300;border-bottom:1px solid #f0d58a;padding:9px 28px;font-size:.84rem}
+@media (prefers-color-scheme:dark){.sim{background:#3a3000;color:#ffe08a;border-color:#5b4a00}}
+main{max-width:1280px;margin:0 auto;padding:26px 28px 60px}
+h2{font-family:var(--fh);font-weight:600;font-size:1.5rem;margin:34px 0 4px}h2:first-child{margin-top:0}
+.sub{color:var(--muted);max-width:760px;margin-bottom:14px;font-size:.92rem}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:16px 18px;box-shadow:0 1px 2px rgba(0,30,43,.06)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.grid2>*,.grid3>*{min-width:0}
+svg text{font-family:var(--fb)}
+.map{width:100%;height:auto;min-width:760px}.map-wrap{overflow-x:auto}
+.node rect{fill:var(--surface);stroke:var(--border);stroke-width:1.2}.node.t rect{fill:var(--accent-soft);stroke:var(--accent)}.node.o rect{fill:var(--forest);stroke:var(--forest)}
+.node text{font-size:12.5px;fill:var(--ink)}.node text.s{font-size:10.5px;fill:var(--muted)}.node.o text{fill:#fff}.node.o text.s{fill:#9fb4bb}
+.arrow{stroke:var(--muted);stroke-width:1.4;fill:none}.arrow.loop{stroke:var(--blue);stroke-dasharray:4 4}.lbl{font-size:10.5px;fill:var(--muted)}
+.gcard h3{font-size:.8rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}.gcard li{margin:3px 0 3px 16px;font-size:.86rem}
+.ctl{display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin:6px 0 14px}
+.ctl input[type=range]{flex:1;min-width:220px;accent-color:var(--accent)}
+button,select{font:inherit;border-radius:6px;border:1px solid var(--accent);background:var(--accent);color:var(--surface);padding:6px 14px;font-weight:600;cursor:pointer}
+@media (prefers-color-scheme:dark){button{color:#001E2B}}
+button.ghost,select{background:transparent;color:var(--ink);border-color:var(--border)}
+.kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:14px}
+.kpi{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:12px 14px}
+.kpi .v{font-family:var(--fh);font-size:1.8rem;font-weight:600;line-height:1.1}.kpi .l{font-size:.64rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-top:4px}
+.kpi small{font-family:var(--fb);font-size:.74rem;font-weight:600;margin-left:6px}.up{color:var(--ok)}.down{color:var(--bad)}
+.legend{display:flex;gap:16px;color:var(--muted);font-size:.78rem;flex-wrap:wrap}.legend i{display:inline-block;width:18px;border-top:3px solid var(--accent);vertical-align:middle;margin-right:5px}.legend i.f{border-top:3px dashed var(--warn)}
+.chart-scroll{overflow-x:auto}svg.chart{width:100%;min-width:640px;height:auto;display:block}
+.chart text{font-size:11px;fill:var(--muted)}.g{stroke:var(--border)}.ver{stroke:var(--blue);stroke-dasharray:3 4;stroke-width:1.2}.vl{fill:var(--blue)!important;font-weight:600}
+.lo{fill:none;stroke:var(--accent);stroke-width:3.2;stroke-linejoin:round}.lf{fill:none;stroke:var(--warn);stroke-width:2;stroke-dasharray:5 4}
+.po{fill:var(--surface);stroke:var(--accent);stroke-width:1.4;cursor:pointer;opacity:.55}.po.sel{opacity:1}.po.sel{fill:var(--accent)}
+.fut{opacity:.18}.cur{stroke:var(--ink);stroke-width:1.2;opacity:.5}
+.rb{fill:var(--bad);font-weight:700}
+.strips{overflow-x:auto}.strow{display:grid;grid-template-columns:200px 1fr;gap:12px;align-items:center;min-width:900px;padding:5px 0;border-bottom:1px solid var(--border)}
+.strow:last-child{border:none}.stn{font-size:.82rem;font-weight:500}.stn small{display:block;color:var(--muted);font-weight:400;font-size:.7rem}
+.dots{position:relative;display:flex;gap:3px;height:16px}
+.d{width:8px;height:14px;border-radius:2px;background:var(--border);flex:none;cursor:pointer}.d.ok{background:var(--ok)}.d.bad{background:var(--bad)}.d.empty{background:transparent;border:1px dashed var(--border)}.d.fut{opacity:.2}.d.sel{outline:2px solid var(--ink)}
+.fix{position:absolute;top:-4px;bottom:-4px;width:2px;background:var(--blue)}
+.fix span{position:absolute;top:-15px;left:-2px;font-size:9px;color:var(--blue);white-space:nowrap;font-weight:700}
+.rule{padding:8px 10px;border:1px solid var(--border);border-radius:8px;margin-bottom:8px;font-size:.84rem}.rule.new{border-color:var(--accent);background:var(--accent-soft)}
+.rule b{font-family:var(--fm);font-size:.72rem;color:var(--muted);margin-right:6px}.rule.lock{opacity:.7}
+.chip{display:inline-block;font-size:.66rem;font-weight:700;border-radius:99px;padding:1px 8px;background:var(--hover);color:var(--muted);margin-left:6px}
+.chip.g{background:var(--accent-soft);color:var(--accent)}.chip.b{background:rgba(1,107,248,.12);color:var(--blue)}.chip.r{background:rgba(207,47,40,.12);color:var(--bad)}.chip.w{background:rgba(255,192,16,.2);color:var(--warn)}
+.ev{padding:7px 0;border-bottom:1px solid var(--border);font-size:.84rem;display:grid;grid-template-columns:44px 1fr;gap:8px}.ev:last-child{border:none}.ev .n{font-family:var(--fm);color:var(--muted);font-size:.74rem}
+.feed{max-height:340px;overflow-y:auto}
+.bubble{padding:8px 12px;border-radius:12px;margin:5px 0;max-width:86%;font-size:.86rem}.bubble.caller{background:var(--hover)}.bubble.agent{background:var(--forest);color:#fff;margin-left:auto}
+@media (prefers-color-scheme:dark){.bubble.agent{background:var(--spring);color:#001E2B}}
+.sc{display:flex;gap:8px;flex-wrap:wrap;font-size:.76rem;color:var(--muted);margin-top:8px}.sc b{color:var(--ink)}
+.find li{margin:6px 0 6px 18px}.find strong{font-weight:600}
+@media (max-width:900px){.grid2,.grid3{grid-template-columns:1fr}.kpis{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head>
+<body>
+<div class="hdr"><span class="logo"><svg viewBox="0 0 24 24"><path d="M12 8a2.4 2.4 0 1 0-2.4-2.4"/><path d="M12 8v2L3.6 16.3a1.1 1.1 0 0 0 .7 2h15.4a1.1 1.1 0 0 0 .7-2L12 10"/></svg></span><b>CJ's Cleaning</b><small>Teacher map and learning journey</small></div>
+<div class="sim"><strong>Simulation.</strong> The callers and the judge are scripted, so none of these scores are real call results. The guardrails, tool validation and the production rollback test are the real teacher code (<code>teacher/src/services/teacher</code>), run on this scripted input.</div>
+<main>
+
+<h2>How the teacher works</h2>
+<p class="sub">After every call the teacher grades it, then proposes small changes. Code, not the model, decides what is allowed to reach the receptionist.</p>
+<div class="card map-wrap">
+<svg class="map" viewBox="0 0 1180 360" role="img" aria-label="Teacher flow: a call is recorded, graded by the judge, filtered by guardrails, and becomes a rule, an owner question or a tool request; rules become a new config version used by the next call.">
+ <defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--muted)"/></marker><marker id="ab" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--blue)"/></marker></defs>
+ <g class="node"><rect x="10" y="120" width="140" height="64" rx="10"/><text x="80" y="148" text-anchor="middle">Caller phones</text><text class="s" x="80" y="166" text-anchor="middle">Twilio + Gemini Live</text></g>
+ <g class="node"><rect x="190" y="120" width="150" height="64" rx="10"/><text x="265" y="148" text-anchor="middle">Call saved</text><text class="s" x="265" y="166" text-anchor="middle">transcript + tool trace</text></g>
+ <g class="node t"><rect x="380" y="120" width="150" height="64" rx="10"/><text x="455" y="148" text-anchor="middle">Judge</text><text class="s" x="455" y="166" text-anchor="middle">5 scores + frustration</text></g>
+ <g class="node t"><rect x="570" y="105" width="160" height="94" rx="10"/><text x="650" y="133" text-anchor="middle">Guardrails in code</text><text class="s" x="650" y="152" text-anchor="middle">evidence turns, no new facts,</text><text class="s" x="650" y="167" text-anchor="middle">caps, locked rules, no duplicates</text></g>
+ <g class="node o"><rect x="790" y="20" width="190" height="56" rx="10"/><text x="885" y="44" text-anchor="middle">New rule, applied now</text><text class="s" x="885" y="62" text-anchor="middle">new config version</text></g>
+ <g class="node"><rect x="790" y="130" width="190" height="56" rx="10"/><text x="885" y="154" text-anchor="middle">Question for the owner</text><text class="s" x="885" y="172" text-anchor="middle">missing fact, never guessed</text></g>
+ <g class="node"><rect x="790" y="240" width="190" height="56" rx="10"/><text x="885" y="264" text-anchor="middle">Tool request</text><text class="s" x="885" y="282" text-anchor="middle">owner builds it, then enables</text></g>
+ <g class="node"><rect x="1020" y="130" width="150" height="56" rx="10"/><text x="1095" y="154" text-anchor="middle">Next call</text><text class="s" x="1095" y="172" text-anchor="middle">loads the live version</text></g>
+ <path class="arrow" marker-end="url(#ah)" d="M150 152H188"/><path class="arrow" marker-end="url(#ah)" d="M340 152H378"/><path class="arrow" marker-end="url(#ah)" d="M530 152H568"/>
+ <path class="arrow" marker-end="url(#ah)" d="M730 135C760 135 760 48 788 48"/><path class="arrow" marker-end="url(#ah)" d="M730 152H788"/><path class="arrow" marker-end="url(#ah)" d="M730 170C760 170 760 268 788 268"/>
+ <path class="arrow" marker-end="url(#ah)" d="M980 48C1040 48 1090 80 1095 128"/><path class="arrow" marker-end="url(#ah)" d="M980 158H1018"/><path class="arrow" marker-end="url(#ah)" d="M980 268C1040 268 1090 230 1095 188"/>
+ <path class="arrow loop" marker-end="url(#ab)" d="M1095 186C1095 352 80 352 80 188"/>
+ <text class="lbl" x="560" y="338" text-anchor="middle" fill="var(--blue)" style="fill:var(--blue)">automatic rollback if the new version scores worse than its parent</text>
+ <text class="lbl" x="745" y="116">auto-applied</text><text class="lbl" x="745" y="220">stay proposals</text>
+</svg></div>
+<div class="grid3" style="margin-top:14px">
+ <div class="card gcard"><h3>What it may change</h3><ul><li>Rules in a marked block of the business info</li><li>Questions it asks the owner</li><li>Requests for new tools</li></ul></div>
+ <div class="card gcard"><h3>What it can never do</h3><ul><li>Write prices, hours or policies</li><li>Enable a tool or set its endpoint</li><li>Edit its own rubric, weights or limits</li><li>Change or delete a locked rule</li></ul></div>
+ <div class="card gcard"><h3>Why changes stay safe</h3><ul><li>Every version is kept; rollback is one pointer move</li><li>Rejected ideas are logged with the reason</li><li>Max 3 rule changes per call, 20 rules total</li></ul></div>
+</div>
+
+<h2>Simulated journey: 90 calls over three weeks</h2>
+<p class="sub">Nine kinds of caller. The receptionist starts out bad at most of them. Drag the slider or press play and watch the teacher find each weakness, fix it, and sometimes get it wrong.</p>
+<div class="ctl">
+ <button id="play">Play</button><button class="ghost" id="reset">Restart</button>
+ <input type="range" id="slider" min="1" max="90" value="90" aria-label="Call number"/><b id="cnum" style="font-family:var(--fm)">call 90</b>
+ <label style="font-size:.84rem;color:var(--muted)">Rollback test <select id="guard"><option value="strict">Proposed: 5 calls, margin</option><option value="prod">As written: last 2 calls</option></select></label>
+</div>
+<div class="kpis" id="kpis"></div>
+<div class="card"><div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap"><b style="font-family:var(--fh)">Quality and caller frustration, call by call</b><div class="legend"><span><i></i>Quality, 10-call average (dots are single calls)</span><span><i class="f"></i>Frustration, 10-call average</span></div></div><div class="chart-scroll" id="chart"></div></div>
+
+<h2>What the agent is bad at, and when it got fixed</h2>
+<p class="sub">One row per kind of caller, one tick per call of that kind. Red is a call the agent handled badly, green is handled well. The blue line is when the fix went live.</p>
+<div class="card strips" id="strips"></div>
+
+<div class="grid2" style="margin-top:16px">
+ <div><h2 style="margin-top:18px;font-size:1.2rem">What the receptionist has been taught</h2><p class="sub" id="cfgsub"></p><div class="card" id="cfg"></div></div>
+ <div><h2 style="margin-top:18px;font-size:1.2rem">What happened</h2><p class="sub">Newest first, up to the selected call.</p><div class="card feed" id="feed"></div></div>
+</div>
+<h2 style="font-size:1.2rem;margin-top:22px">Inspect a call</h2><p class="sub">Click a point on the chart or a tick above.</p>
+<div class="card" id="insp"></div>
+
+<h2>What this simulation showed</h2>
+<div class="card find"><ul id="find"></ul></div>
+</main>
+<script>
+var J=/*JOURNEY_DATA*/null;
+(function(){
+"use strict";
+var $=function(i){return document.getElementById(i);}, esc=function(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];});};
+var f1=function(n){return n==null?"–":(Math.round(n*10)/10).toFixed(1);};
+var mean=function(a){return a.length?a.reduce(function(x,y){return x+y;},0)/a.length:null;};
+var S={n:J.runs.strict.calls.length,guard:"strict",sel:null,timer:null};
+function run(){return J.runs[S.guard];}
+function upto(){return run().calls.slice(0,S.n);}
+
+function kpis(){
+  var c=upto(), last=c.slice(-10), prev=c.slice(-20,-10);
+  var o=mean(last.map(function(x){return x.overall;})), po=mean(prev.map(function(x){return x.overall;}));
+  var fr=mean(last.map(function(x){return x.frustration;})), fl=last.length?last.filter(function(x){return x.failed;}).length/last.length:null;
+  var v=c.length?c[c.length-1].version:"v1", cv=run().versions.filter(function(x){return x.id===v;})[0];
+  var d=o!=null&&po!=null?o-po:null;
+  var cells=[[f1(o)+(d!=null?'<small class="'+(d>=0?"up":"down")+'">'+(d>=0?"▲ ":"▼ ")+f1(Math.abs(d))+'</small>':""),"Quality, last 10 calls"],[f1(fr),"Frustration, last 10"],[fl==null?"–":Math.round(fl*100)+"%","Calls handled badly, last 10"],[String(cv?cv.rules.length-1:0),"Rules taught so far"],[v,"Config version in use"]];
+  $("kpis").innerHTML=cells.map(function(x){return '<div class="kpi"><div class="v">'+x[0]+'</div><div class="l">'+x[1]+'</div></div>';}).join("");
+}
+function chart(){
+  var all=run().calls, W=900,H=250,L=34,R=44,T=30,B=26,N=all.length;
+  var X=function(i){return L+(W-L-R)*i/(N-1);}, Y=function(v){return T+(H-T-B)*(1-v/10);};
+  var o='<svg class="chart" viewBox="0 0 '+W+' '+H+'" role="img" aria-label="Quality and frustration per call">';
+  [0,5,10].forEach(function(v){o+='<line class="g" x1="'+L+'" x2="'+(W-R)+'" y1="'+Y(v)+'" y2="'+Y(v)+'"/><text x="'+(L-8)+'" y="'+(Y(v)+4)+'" text-anchor="end">'+v+'</text>';});
+  var lastV=null;
+  all.forEach(function(c,i){ if(lastV&&c.version!==lastV&&i<S.n){o+='<line class="ver" x1="'+X(i-.5)+'" x2="'+X(i-.5)+'" y1="'+(T-8)+'" y2="'+(H-B)+'"/><text class="vl" x="'+(X(i-.5)+3)+'" y="'+(T-12)+'" font-size="9">'+esc(c.version)+'</text>'; } lastV=c.version; });
+  var roll=function(k){return all.slice(0,S.n).map(function(c,i){var w=all.slice(Math.max(0,i-9),i+1);return X(i).toFixed(1)+","+Y(mean(w.map(function(x){return x[k];}))).toFixed(1);}).join(" ");};
+  o+=(S.n>1?'<polyline class="lf" points="'+roll("frustration")+'"/><polyline class="lo" points="'+roll("overall")+'"/>':"");
+  all.forEach(function(c,i){ var fut=i>=S.n; o+='<circle class="po'+(S.sel===c.n?" sel":"")+(fut?" fut":"")+'" data-n="'+c.n+'" cx="'+X(i)+'" cy="'+Y(c.overall)+'" r="'+(S.sel===c.n?5.5:3.4)+'"><title>call '+c.n+' · '+esc(c.modeLabel)+' · score '+f1(c.overall)+' · '+c.version+'</title></circle>'; if(c.rolledBack&&!fut) o+='<text class="rb" x="'+X(i)+'" y="'+(Y(c.overall)-9)+'" text-anchor="middle">↺</text>'; });
+  o+='<line class="cur" x1="'+X(S.n-1)+'" x2="'+X(S.n-1)+'" y1="'+T+'" y2="'+(H-B)+'"/><text x="'+L+'" y="'+(H-6)+'">call 1</text><text x="'+(W-R)+'" y="'+(H-6)+'" text-anchor="end">call '+N+'</text></svg>';
+  $("chart").innerHTML=o;
+}
+function strips(){
+  var r=run(), N=r.calls.length, html="";
+  J.modes.forEach(function(m){
+    var dots="", cnt=0, bad=0, fixAt=null;
+    r.events.forEach(function(e){ if(fixAt==null&&((e.kind==="rule_added"&&e.text.indexOf(m.fixText)>=0)||(m.key==="unknown_policy"&&e.kind==="owner_answer")||(m.key==="reschedule"&&e.kind==="tool_enabled"))) fixAt=e.call; });
+    r.calls.forEach(function(c,i){
+      var fut=i>=S.n, here=c.mode===m.key; if(here&&!fut){cnt++; if(c.failed)bad++;}
+      dots+='<div class="d '+(here?(c.failed?"bad":"ok"):"empty")+(fut?" fut":"")+(S.sel===c.n&&here?" sel":"")+'" '+(here?'data-n="'+c.n+'" title="call '+c.n+(c.failed?" · handled badly":" · handled well")+'"':"")+'></div>';
+    });
+    var fx=(fixAt&&fixAt<=S.n)?'<div class="fix" style="left:'+((fixAt-1)*11)+'px"><span>fix</span></div>':"";
+    var how=m.fix==="rule"?"fixed by a rule":m.fix==="owner_answer"?"fixed by the owner's answer":"needs a new tool";
+    html+='<div class="strow"><div class="stn">'+esc(m.label)+'<small>'+how+(cnt?" · "+bad+" of "+cnt+" bad":"")+'</small></div><div class="dots">'+fx+dots+'</div></div>';
+  });
+  $("strips").innerHTML=html;
+}
+function cfg(){
+  var c=upto(), last=c[c.length-1], v=last?last.version:"v1";
+  var ver=run().versions.filter(function(x){return x.id===v;})[0], parent=ver&&run().versions.filter(function(x){return x.id===ver.parent;})[0];
+  $("cfgsub").textContent="Version "+v+(ver?" ("+ver.by+")":"")+" is what call "+S.n+" ran on.";
+  if(!ver){$("cfg").innerHTML="";return;}
+  var seen={}; (parent?parent.rules:[]).forEach(function(r){seen[r.id+r.text]=1;});
+  var h=ver.rules.map(function(r){return '<div class="rule'+(r.locked?" lock":"")+(!seen[r.id+r.text]&&parent?" new":"")+'"><b>'+esc(r.id)+(r.locked?" · locked":"")+'</b>'+esc(r.text)+(!seen[r.id+r.text]&&parent?'<span class="chip g">new</span>':"")+'</div>';}).join("");
+  var ans=ver.context.indexOf(J.owner.answer)>=0;
+  h+='<div class="rule'+(ans&&(!parent||parent.context.indexOf(J.owner.answer)<0)?" new":"")+'"><b>business info</b>'+(ans?"Includes the owner's answer: “"+esc(J.owner.answer)+"”":"Only what the owner wrote at setup.")+'</div>';
+  $("cfg").innerHTML=h;
+}
+var KIND={rule_added:["rule","g"],bad_rule:["bad rule","w"],rejected:["blocked","r"],rollback:["rollback","b"],false_rollback:["wrong rollback","r"],owner_question:["asks owner","w"],owner_answer:["owner","g"],tool_requested:["tool idea","b"],tool_approved:["owner","g"],tool_enabled:["tool live","g"]};
+function feed(){
+  var ev=run().events.filter(function(e){return e.call<=S.n;}).slice().reverse();
+  $("feed").innerHTML=ev.length?ev.map(function(e){var k=KIND[e.kind]||[e.kind,""];return '<div class="ev"><span class="n">#'+e.call+'</span><span>'+esc(e.text)+'<span class="chip '+k[1]+'">'+k[0]+'</span></span></div>';}).join(""):'<div class="sub">Nothing yet.</div>';
+}
+function insp(){
+  var c=run().calls.filter(function(x){return x.n===(S.sel||S.n);})[0]; if(!c){$("insp").innerHTML="";return;}
+  var sc=c.scores, tr=c.transcript.map(function(t){return '<div class="bubble '+t.role+'">'+esc(t.text)+'</div>';}).join("");
+  var iss=c.issues.map(function(i){return '<div style="font-size:.84rem;margin-top:6px"><span class="chip r">'+esc(i.type.replace("_"," "))+'</span> “'+esc(i.quote)+'” — '+esc(i.explanation)+'</div>';}).join("");
+  var imps=c.improvements.map(function(i){return '<div style="font-size:.84rem;margin-top:6px"><span class="chip '+(i.status==="applied"?"g":i.status==="rejected"?"r":"w")+'">'+esc(i.type+" · "+i.status)+'</span> '+esc(i.text||"")+(i.reason?' <span style="color:var(--bad)">('+esc(i.reason)+')</span>':"")+'</div>';}).join("");
+  $("insp").innerHTML='<div class="grid2"><div><b>Call '+c.n+'</b> <span class="chip">'+esc(c.modeLabel)+'</span><span class="chip">'+c.version+'</span><span class="chip '+(c.failed?"r":"g")+'">'+(c.failed?"handled badly":"handled well")+'</span>'+tr+'</div><div><div style="font-family:var(--fh);font-size:2rem;font-weight:600">'+f1(c.overall)+'<span style="font-size:.9rem;color:var(--muted)"> / 10 · frustration '+f1(c.frustration)+'</span></div><div class="sc">'+["accuracy","tool_use","task_completion","tone","brevity"].map(function(k){return k.replace("_"," ")+' <b>'+sc[k]+'</b>';}).join(" · ")+'</div><p style="margin-top:8px;font-size:.88rem">'+esc(c.rationale)+'</p>'+iss+'<div style="margin-top:10px;color:var(--muted);font-size:.74rem;letter-spacing:.08em;text-transform:uppercase">What the teacher did</div>'+(imps||'<div style="font-size:.84rem;margin-top:4px">No changes proposed.</div>')+'</div></div>';
+}
+function findings(){
+  var P=J.runs.prod, T=J.runs.strict, n=function(r,k){return r.events.filter(function(e){return e.kind===k;}).length;};
+  var seg=function(r,a,b){var c=r.calls.slice(a,b);return {o:mean(c.map(function(x){return x.overall;})),f:mean(c.map(function(x){return x.frustration;})),b:c.filter(function(x){return x.failed;}).length/c.length};};
+  var a=seg(T,0,20), z=seg(T,-20), pz=seg(P,-20);
+  var items=[
+   "<strong>It learns.</strong> In the first 20 calls the receptionist handled "+Math.round(a.b*100)+"% badly with a quality score of "+f1(a.o)+". By the last 20 it is "+Math.round(z.b*100)+"% with "+f1(z.o)+", and frustration fell from "+f1(a.f)+" to "+f1(z.f)+".",
+   "<strong>Some weaknesses need people.</strong> It cannot learn the wedding dress policy from calls, so it asked the owner and waited. Rescheduling a pickup needs a tool that did not exist, so it requested one; every one of those callers had to wait for a callback until the owner built and enabled it.",
+   "<strong>The guardrails did their job.</strong> A rule that hard-coded a rush price was blocked ("+n(T,"rejected")+" time). A rule that made callers give their name before every answer got through, quality dropped, and it was rolled back automatically.",
+   "<strong>Finding: the rollback test as written is too twitchy.</strong> It compares a version's last 2 calls with its parent's average. A call's score depends heavily on what the caller asked (about 4 points between a handled-badly and a handled-well call), so two calls say little about the rule. On this same input it rolled back "+n(P,"false_rollback")+" rules that were working, and the receptionist ended at "+f1(pz.o)+" instead of "+f1(z.o)+". Requiring 5 calls and a margin of 0.8 points rolled back only the bad rule.",
+   "<strong>Limits of this simulation.</strong> The callers and the judge are scripted, so it shows the loop's mechanics and guardrails, not how well Gemini grades real calls. Run <code>npm run demo</code> in <code>teacher/</code> with a Gemini key for that."
+  ];
+  $("find").innerHTML=items.map(function(i){return "<li>"+i+"</li>";}).join("");
+}
+function draw(){ $("cnum").textContent="call "+S.n; $("slider").value=S.n; kpis(); chart(); strips(); cfg(); feed(); insp(); }
+$("slider").addEventListener("input",function(){S.n=+this.value;S.sel=null;draw();});
+$("guard").addEventListener("change",function(){S.guard=this.value;S.sel=null;draw();});
+$("reset").addEventListener("click",function(){stop();S.n=1;S.sel=null;draw();});
+function stop(){clearInterval(S.timer);S.timer=null;$("play").textContent="Play";}
+$("play").addEventListener("click",function(){ if(S.timer){stop();return;} if(S.n>=run().calls.length) S.n=1; $("play").textContent="Pause"; S.timer=setInterval(function(){ if(S.n>=run().calls.length){stop();return;} S.n++; S.sel=null; draw(); },180); });
+document.addEventListener("click",function(e){ var t=e.target.closest("[data-n]"); if(t){ S.sel=+t.getAttribute("data-n"); if(S.sel>S.n) S.n=S.sel; draw(); $("insp").scrollIntoView({block:"nearest",behavior:"smooth"}); } });
+findings(); draw();
+})();
+</script>
+</body>
+</html>
